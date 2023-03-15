@@ -11,7 +11,7 @@ if (!fs.existsSync(UPLOAD_FOLDER)) {
     fs.mkdirSync(UPLOAD_FOLDER);
 }
 
-app.use(express.static('.'));
+app.use(express.static('static'));
 
 app.post('/upload', upload.single('audio'), (req, res) => {
     if (req.file) {
