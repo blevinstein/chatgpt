@@ -60,6 +60,20 @@ function createListItemWithSpinner() {
     return listItem;
 }
 
+async function announceMessage(message) {
+    return new Promise((resolve) => {
+        const synth = window.speechSynthesis;
+        const utterance = new SpeechSynthesisUtterance(message);
+
+        utterance.onend = () => {
+            resolve();
+        };
+
+        synth.speak(utterance);
+    });
+}
+
+
 function stopRecordingAndUpload() {
     resetRecordButton();
 
@@ -107,6 +121,7 @@ function stopRecordingAndUpload() {
                 const chat = await chatResponse.text();
                 console.log(`Chat response successful: ${chat}`);
                 displayMessage('assistant', chat, chatListItem);
+                announceMessage(chat);
             } else {
                 console.error('Error completing chat:', chatResponse.statusText);
                 chatListItem.remove();
