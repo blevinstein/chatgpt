@@ -1,15 +1,11 @@
-const recordButton = document.getElementById("recordButton");
-const stopButton = document.getElementById("stopButton");
-const uploadButton = document.getElementById("uploadButton");
-
 let mediaRecorder;
 let recordedBlobs;
 
-recordButton.addEventListener("click", startRecording);
-stopButton.addEventListener("click", stopRecording);
-uploadButton.addEventListener("click", uploadRecording);
+const recordButton = document.getElementById('recordButton');
+recordButton.addEventListener('mousedown', startRecording);
+recordButton.addEventListener('mouseup', stopRecordingAndUpload);
 
-async function startRecording() {
+async function initMediaRecorder() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaRecorder = new MediaRecorder(stream);
     recordedBlobs = [];
@@ -19,37 +15,39 @@ async function startRecording() {
             recordedBlobs.push(event.data);
         }
     };
-    mediaRecorder.start();
-    recordButton.disabled = true;
-    stopButton.disabled = false;
 }
 
-function stopRecording() {
-    mediaRecorder.stop();
-    stopButton.disabled = true;
-    uploadButton.disabled = false;
-}
-
-async function uploadRecording() {
-    const mimeType = "audio/webm"; // Update this based on your desired format
-    const blob = new Blob(recordedBlobs, { type: mimeType });
-    const formData = new FormData();
-    formData.append("audio", blob);
-    formData.append("mimeType", mimeType); // Send the mimeType to the server
-
-    const response = await fetch("http://localhost:3000/upload", {
-        method: "POST",
-        body: formData,
+function startRecording() {
+    initMediaRecorder().then(() => {
+        mediaRecorder.start();
+    }).catch((error) => {
+        console.error('Error initializing media recorder:', error);
     });
-
-    if (response.ok) {
-        alert("Upload successful!");
-    } else {
-        alert("Upload failed.");
-    }
-
-    recordButton.disabled = false;
-    uploadButton.disabled = true;
 }
 
+function stopRecordingAndUpload() {
+    mediaRecorder.stop();
+    mediaRecorder.onstop = () => {
+        const mimeType = 'audio/webm';
+        const audioBlob = new Blob(recordedBlobs, { type: mimeType });
+        const formData = new FormData();
 
+        formData.append('audio', audioBlob);
+        formData.append('mimeType', mimeType);
+
+        fetch('/upload', {
+            method: 'POST',
+            body: formData,
+        })
+        .then((response) => {
+            if (response.ok) {
+                console.log('Audio uploaded successfully');
+            } else {
+                console.error('Error uploading audio:', response.statusText);
+            }
+        })
+        .catch((error) => {
+            console.error('Error uploading audio:', error);
+        });
+    };
+}

@@ -60,14 +60,13 @@ app.post('/upload', upload.single('audio'), async (req, res) => {
         const mimeType = req.body.mimeType;
         const fileExtension = getExtensionByMimeType(mimeType);
 
-        // DEBUG
-        console.log({mimeType, fileExtension});
+        console.log(`Received audio of type ${mimeType} path ${req.file.path}`);
 
         const oldPath = path.join(__dirname, req.file.path);
         const newPath = path.join(__dirname, req.file.path + fileExtension);
-
         fs.renameSync(oldPath, newPath);
 
+        console.log('Transcribing audio...');
         const transcribedText = await transcribeAudioFile(newPath);
         if (transcribedText) {
             console.log('Transcribed Text:', transcribedText);
