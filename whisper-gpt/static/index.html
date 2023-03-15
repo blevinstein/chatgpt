@@ -4,10 +4,42 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Audio Recorder</title>
+    <style>
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #000;
+            border-radius: 50%;
+            animation: spinner 1s linear infinite;
+        }
+
+        @keyframes spinner {
+            to { transform: rotate(360deg); }
+        }
+
+        .recording {
+            background-color: #f00;
+            color: #fff;
+        }
+
+        #recordButton {
+            width: 200px;
+            height: 50px;
+            text-align: center;
+            line-height: 50px;
+        }
+  </style>
 </head>
 <body>
     <h1>Audio Recorder</h1>
     <button id="recordButton">Press and hold to record</button>
+
+    <div id="transcriptionsContainer">
+        <h2>Transcriptions</h2>
+        <ul id="transcriptionsList"></ul>
+    </div>
 
     <script src="script.js"></script>
 </body>

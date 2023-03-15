@@ -70,7 +70,7 @@ app.post('/upload', upload.single('audio'), async (req, res) => {
         const transcribedText = await transcribeAudioFile(newPath);
         if (transcribedText) {
             console.log('Transcribed Text:', transcribedText);
-            res.status(200).send('Upload and transcription successful');
+            res.status(200).send(transcribedText);
         } else {
             res.status(500).send('Transcription failed');
         }
