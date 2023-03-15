@@ -33,7 +33,7 @@ function startRecording() {
     });
 }
 
-function displayMessage(username, message, listItem) {
+function displayMessage(username, message, listItem, html) {
     messages.push({ role: username, content: message });
 
     const spinner = listItem.querySelector('.spinner');
@@ -43,7 +43,11 @@ function displayMessage(username, message, listItem) {
     usernameElement.textContent = `${username}: `;
 
     const messageElement = document.createElement('span');
-    messageElement.textContent = message;
+    if (html) {
+      messageElement.innerHTML = html;
+    } else {
+      messageElement.textContent = message;
+    }
 
     listItem.appendChild(usernameElement);
     listItem.appendChild(messageElement);
@@ -146,9 +150,9 @@ function stopRecordingAndUpload() {
             });
 
             if (chatResponse.ok) {
-                const { text: chat, language } = await chatResponse.json();
+                const { text: chat, language, html } = await chatResponse.json();
                 console.log(`Chat response successful: ${chat}`);
-                displayMessage('assistant', chat, chatListItem);
+                displayMessage('assistant', chat, chatListItem, html);
                 announceMessage(chat, language);
             } else {
                 console.error('Error completing chat:', chatResponse.statusText);

@@ -3,6 +3,7 @@ const express = require('express');
 const fs = require('fs');
 const FormData = require('form-data');
 const langs = require('langs');
+const markdown = require('markdown-it')();
 const multer = require('multer');
 const { Configuration, OpenAIApi } = require('openai');
 const path = require('path');
@@ -127,10 +128,11 @@ app.post('/chat', async (req, res) => {
         const reply = response.data.choices[0].message.content;
         console.log(response.data.choices[0].message);
         const language = await detectLanguage(reply);
+        const html = markdown.render(reply);
 
         console.log(`Assistant reply: ${reply}`);
         res.type('json');
-        res.status(200).send(JSON.stringify({ text: reply, language }));
+        res.status(200).send(JSON.stringify({ text: reply, language, html }));
     } catch (error) {
         console.error('Error processing chat:', error);
         res.status(500).send('Error processing chat');
