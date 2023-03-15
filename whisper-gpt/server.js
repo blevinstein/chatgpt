@@ -1,10 +1,11 @@
 const axios = require('axios');
 const express = require('express');
+const fs = require('fs');
+const FormData = require('form-data');
+const langs = require('langs');
 const multer = require('multer');
 const { Configuration, OpenAIApi } = require('openai');
-const fs = require('fs');
 const path = require('path');
-const FormData = require('form-data');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
@@ -35,6 +36,33 @@ function getExtensionByMimeType(mimeType) {
     };
 
     return extensions[mimeType] || '';
+}
+
+function convertIso6393ToIso6391(iso6393Code) {
+    const langObj = langs.where('3', iso6393Code);
+    if (langObj) {
+        return langObj['1'];
+    } else {
+        console.log(`Unable to find ISO 639-1 code for the given ISO 639-3 code: ${iso6393Code}`);
+        return null;
+    }
+}
+
+async function detectLanguage(text) {
+  console.log(`Inferring language for \"${text}\"`);
+  const { franc } = await import('franc');
+
+  // franc can return ISO 639-3 language codes. We want to convert them to ISO 639-1 codes.
+  const languageCode = convertIso6393ToIso6391(franc(text));
+
+  // If franc cannot detect the language or the text is too short, it returns 'und' (undetermined)
+  if (languageCode === 'und') {
+    console.log('Unable to determine the language of the text.');
+    return null;
+  }
+
+  console.log(`Detected language code: ${languageCode}`);
+  return languageCode;
 }
 
 async function transcribeAudioFile(filePath) {
@@ -76,7 +104,7 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
         console.log('Transcribing audio...');
         const transcribedText = await transcribeAudioFile(newPath);
         if (transcribedText) {
-            console.log('Transcribed Text:', transcribedText);
+            console.log(`Transcribed Text: ${transcribedText}`);
             res.status(200).send(transcribedText);
         } else {
             res.status(500).send('Transcription failed');
@@ -97,9 +125,12 @@ app.post('/chat', async (req, res) => {
           messages,
         });
         const reply = response.data.choices[0].message.content;
+        console.log(response.data.choices[0].message);
+        const language = await detectLanguage(reply);
 
         console.log(`Assistant reply: ${reply}`);
-        res.status(200).send(reply);
+        res.type('json');
+        res.status(200).send(JSON.stringify({ text: reply, language }));
     } catch (error) {
         console.error('Error processing chat:', error);
         res.status(500).send('Error processing chat');

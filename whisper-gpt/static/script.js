@@ -62,10 +62,30 @@ function createListItemWithSpinner() {
     return listItem;
 }
 
-async function announceMessage(message) {
+let voices;
+const LOAD_TIME = 100;
+async function loadVoices() {
+  voices = await window.speechSynthesis.getVoices();
+  if (voices.length) {
+    console.log(`Loaded ${voices.length} voices`);
+  } else {
+    console.error('Voices are not yet ready');
+    setTimeout(loadVoices, LOAD_TIME);
+  }
+}
+setTimeout(loadVoices, 0);
+
+async function announceMessage(message, language) {
     return new Promise((resolve) => {
-        console.log('Creating a speech utterance');
+        console.log(`Creating a speech utterance in language ${language}`);
         const utterance = new SpeechSynthesisUtterance(message);
+
+        const chosenVoice = voices.find(v => v.lang.startsWith(language));
+        if (chosenVoice) {
+          utterance.voice = chosenVoice;
+        } else {
+          console.error(`No voice found for language ${language}`);
+        }
 
         // Adjust the rate, pitch, and volume
         utterance.rate = 1; // Default is 1, range is 0.1 to 10
@@ -126,10 +146,10 @@ function stopRecordingAndUpload() {
             });
 
             if (chatResponse.ok) {
-                const chat = await chatResponse.text();
+                const { text: chat, language } = await chatResponse.json();
                 console.log(`Chat response successful: ${chat}`);
                 displayMessage('assistant', chat, chatListItem);
-                announceMessage(chat);
+                announceMessage(chat, language);
             } else {
                 console.error('Error completing chat:', chatResponse.statusText);
                 chatListItem.remove();
