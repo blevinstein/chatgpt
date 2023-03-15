@@ -20,10 +20,17 @@ async function initMediaRecorder() {
 }
 
 function startRecording() {
+    window.speechSynthesis.cancel();
+
     recordButton.classList.add('recording');
     recordButton.textContent = 'Recording...';
 
-    mediaRecorder.start();
+    initMediaRecorder().then(() => {
+        mediaRecorder.start();
+    }).catch((error) => {
+        console.error('Error initializing media recorder:', error);
+        resetRecordButton(); // Reset the button if media recorder fails to initialize
+    });
 }
 
 function displayMessage(username, message, listItem) {
@@ -141,11 +148,8 @@ function resetRecordButton() {
     recordButton.textContent = 'Press and hold to record';
 }
 
-displayMessage('system', 'You are a helpful assistant.', createListItemWithSpinner());
+//const SYSTEM_PROMPT = 'You are a helpful assistant.';
+const SYSTEM_PROMPT = 'You are a helpful assistant. Your messages are being conveyed by audio, so keep your responses concise, and elaborate only when requested by the user.';
 
-initMediaRecorder().then(() => {
-    console.log('Media recorder initialized.');
-}).catch((error) => {
-    console.error('Error initializing media recorder:', error);
-    resetRecordButton(); // Reset the button if media recorder fails to initialize
-});
+displayMessage('system', SYSTEM_PROMPT, createListItemWithSpinner());
+
