@@ -1,6 +1,7 @@
 const axios = require('axios');
 const express = require('express');
 const multer = require('multer');
+const { Configuration, OpenAIApi } = require('openai');
 const fs = require('fs');
 const path = require('path');
 const FormData = require('form-data');
@@ -8,6 +9,11 @@ const FormData = require('form-data');
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
+const OPENAI_KEY = process.env.OPENAI_KEY;
+const configuration = new Configuration({
+    apiKey: OPENAI_KEY,
+});
+const openai = new OpenAIApi(configuration);
 
 const UPLOAD_FOLDER = 'uploads';
 if (!fs.existsSync(UPLOAD_FOLDER)) {
@@ -15,6 +21,7 @@ if (!fs.existsSync(UPLOAD_FOLDER)) {
 }
 
 app.use(express.static('static'));
+app.use(express.json());
 
 function getExtensionByMimeType(mimeType) {
     const extensions = {
@@ -41,7 +48,7 @@ async function transcribeAudioFile(filePath) {
             formData,
             {
                 headers: {
-                    'Authorization': `Bearer ${process.env.OPENAI_KEY}`,
+                    'Authorization': `Bearer ${OPENAI_KEY}`,
                     ...formData.getHeaders(),
                 },
             }
@@ -80,6 +87,22 @@ app.post('/upload', upload.single('audio'), async (req, res) => {
         res.status(400).send('Upload failed');
     }
 });
+
+app.post('/chat', async (req, res) => {
+    try {
+        const { messages } = req.body;
+        const response = await openai.createChatCompletion({
+          model: 'gpt-3.5-turbo',
+          messages: JSON.parse(messages),
+        });
+
+        res.status(200).send(response.data.choices[0].message.content);
+    } catch (error) {
+        console.error('Error processing chat:', error);
+        res.status(500).send('Error processing chat');
+    }
+});
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
