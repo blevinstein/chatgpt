@@ -91,12 +91,13 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
 app.post('/chat', async (req, res) => {
     try {
         const { messages } = req.body;
+
         const response = await openai.createChatCompletion({
           model: 'gpt-3.5-turbo',
           messages,
         });
-
         const reply = response.data.choices[0].message.content;
+
         console.log(`Assistant reply: ${reply}`);
         res.status(200).send(reply);
     } catch (error) {
