@@ -93,10 +93,12 @@ app.post('/chat', async (req, res) => {
         const { messages } = req.body;
         const response = await openai.createChatCompletion({
           model: 'gpt-3.5-turbo',
-          messages: JSON.parse(messages),
+          messages,
         });
 
-        res.status(200).send(response.data.choices[0].message.content);
+        const reply = response.data.choices[0].message.content;
+        console.log(`Assistant reply: ${reply}`);
+        res.status(200).send(reply);
     } catch (error) {
         console.error('Error processing chat:', error);
         res.status(500).send('Error processing chat');

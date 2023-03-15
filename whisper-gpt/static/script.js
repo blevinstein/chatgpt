@@ -1,5 +1,6 @@
 let mediaRecorder;
 let recordedBlobs;
+let messages = [];
 
 const recordButton = document.getElementById('recordButton');
 recordButton.addEventListener('mousedown', startRecording);
@@ -30,12 +31,22 @@ function startRecording() {
     });
 }
 
-function displayTranscription(transcription, listItem) {
+function displayMessage(username, message, listItem) {
+    messages.push({ role: username, content: message });
+
     const spinner = listItem.querySelector('.spinner');
     spinner.remove();
 
-    listItem.textContent = transcription;
+    const usernameElement = document.createElement('b');
+    usernameElement.textContent = `${username}: `;
+
+    const messageElement = document.createElement('span');
+    messageElement.textContent = message;
+
+    listItem.appendChild(usernameElement);
+    listItem.appendChild(messageElement);
 }
+
 
 function createListItemWithSpinner() {
     const listItem = document.createElement('li');
@@ -43,8 +54,8 @@ function createListItemWithSpinner() {
     spinner.classList.add('spinner');
     listItem.appendChild(spinner);
 
-    const transcriptionsList = document.getElementById('transcriptionsList');
-    transcriptionsList.appendChild(listItem);
+    const messageList = document.getElementById('messageList');
+    messageList.appendChild(listItem);
 
     return listItem;
 }
@@ -62,6 +73,7 @@ function stopRecordingAndUpload() {
 
         const listItem = createListItemWithSpinner();
 
+        // Add transcription to messages
         try {
             const response = await fetch('/transcribe', {
                 method: 'POST',
@@ -69,9 +81,9 @@ function stopRecordingAndUpload() {
             });
 
             if (response.ok) {
-                console.log('Audio uploaded successfully');
                 const transcription = await response.text();
-                displayTranscription(transcription, listItem);
+                console.log(`Audio transcribed successfully: ${transcription}`);
+                displayMessage('user', transcription, listItem);
             } else {
                 console.error('Error uploading audio:', response.statusText);
                 listItem.remove(); // Remove the listItem if the upload fails
@@ -79,6 +91,30 @@ function stopRecordingAndUpload() {
         } catch (error) {
             console.error('Error uploading audio:', error);
             listItem.remove(); // Remove the listItem if the upload fails
+            return;
+        }
+
+        const chatListItem = createListItemWithSpinner();
+
+        try {
+            const chatResponse = await fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages }),
+            });
+
+            if (chatResponse.ok) {
+                const chat = await chatResponse.text();
+                console.log(`Chat response successful: ${chat}`);
+                displayMessage('assistant', chat, chatListItem);
+            } else {
+                console.error('Error completing chat:', chatResponse.statusText);
+                chatListItem.remove();
+            }
+        } catch (error) {
+            console.error('Error completing chat:', error);
+            chatListItem.remove(); // Remove the listItem if the upload fails
+            return;
         }
     };
 }
@@ -88,4 +124,6 @@ function resetRecordButton() {
     recordButton.classList.remove('recording');
     recordButton.textContent = 'Press and hold to record';
 }
+
+displayMessage('system', 'You are a helpful assistant.', createListItemWithSpinner());
 
