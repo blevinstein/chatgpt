@@ -31,9 +31,11 @@ function stopRecording() {
 }
 
 async function uploadRecording() {
-    const blob = new Blob(recordedBlobs, { type: "audio/webm" });
+    const mimeType = "audio/webm"; // Update this based on your desired format
+    const blob = new Blob(recordedBlobs, { type: mimeType });
     const formData = new FormData();
     formData.append("audio", blob);
+    formData.append("mimeType", mimeType); // Send the mimeType to the server
 
     const response = await fetch("http://localhost:3000/upload", {
         method: "POST",
@@ -49,4 +51,5 @@ async function uploadRecording() {
     recordButton.disabled = false;
     uploadButton.disabled = true;
 }
+
 
