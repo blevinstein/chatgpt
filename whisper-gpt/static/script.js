@@ -53,7 +53,7 @@ function stopRecordingAndUpload() {
     resetRecordButton();
 
     mediaRecorder.stop();
-    mediaRecorder.onstop = () => {
+    mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(recordedBlobs, { type: 'audio/webm' });
         const formData = new FormData();
 
@@ -62,11 +62,12 @@ function stopRecordingAndUpload() {
 
         const listItem = createListItemWithSpinner();
 
-        fetch('/upload', {
-            method: 'POST',
-            body: formData,
-        })
-        .then(async (response) => {
+        try {
+            const response = await fetch('/transcribe', {
+                method: 'POST',
+                body: formData,
+            });
+
             if (response.ok) {
                 console.log('Audio uploaded successfully');
                 const transcription = await response.text();
@@ -75,11 +76,10 @@ function stopRecordingAndUpload() {
                 console.error('Error uploading audio:', response.statusText);
                 listItem.remove(); // Remove the listItem if the upload fails
             }
-        })
-        .catch((error) => {
+        } catch (error) {
             console.error('Error uploading audio:', error);
             listItem.remove(); // Remove the listItem if the upload fails
-        });
+        }
     };
 }
 

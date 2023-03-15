@@ -62,7 +62,7 @@ async function transcribeAudioFile(filePath) {
 }
 
 
-app.post('/upload', upload.single('audio'), async (req, res) => {
+app.post('/transcribe', upload.single('audio'), async (req, res) => {
     if (req.file) {
         const mimeType = req.body.mimeType;
         const fileExtension = getExtensionByMimeType(mimeType);
