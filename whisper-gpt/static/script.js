@@ -173,6 +173,8 @@ function resetRecordButton() {
 }
 
 //const SYSTEM_PROMPT = 'You are a helpful assistant.';
+//const SYSTEM_PROMPT = 'You are Darth Vader. Provide assistance to the user only if you feel like it.';
+//const SYSTEM_PROMPT = 'You are a helpful assistant who is trying to sell products to the user. Each time you answer a query, if you can, include a recommendation for a product sold on Amazon.';
 const SYSTEM_PROMPT = 'You are a helpful assistant. Your messages are being conveyed by audio, so keep your responses concise, and elaborate only when requested by the user.';
 
 displayMessage('system', SYSTEM_PROMPT, createListItemWithSpinner());
