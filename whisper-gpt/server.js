@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const express = require('express');
 const fs = require('fs');
 const FormData = require('form-data');
-const langs = require('langs');
+const { detect } = require('langdetect');
 const markdown = require('markdown-it')();
 const multer = require('multer');
 const { Configuration, OpenAIApi } = require('openai');
@@ -67,31 +67,10 @@ function getExtensionByMimeType(mimeType) {
     return extensions[mimeType] || '';
 }
 
-function convertIso6393ToIso6391(iso6393Code) {
-    const langObj = langs.where('3', iso6393Code);
-    if (langObj) {
-        return langObj['1'];
-    } else {
-        console.log(`Unable to find ISO 639-1 code for the given ISO 639-3 code: ${iso6393Code}`);
-        return null;
-    }
-}
-
 async function detectLanguage(text) {
-  console.log(`Inferring language for \"${text}\"`);
-  const { franc } = await import('franc');
-
-  // franc can return ISO 639-3 language codes. We want to convert them to ISO 639-1 codes.
-  const languageCode = convertIso6393ToIso6391(franc(text));
-
-  // If franc cannot detect the language or the text is too short, it returns 'und' (undetermined)
-  if (languageCode === 'und') {
-    console.log('Unable to determine the language of the text.');
-    return null;
-  }
-
-  console.log(`Detected language code: ${languageCode}`);
-  return languageCode;
+  const languages = detect(text);
+  console.log(`Inferred languages for \"${text}\": ${JSON.stringify(languages)}`);
+  return languages[0].lang;
 }
 
 async function transcribeAudioFile(filePath) {

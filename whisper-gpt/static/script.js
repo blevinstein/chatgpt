@@ -84,6 +84,7 @@ setTimeout(loadVoices, 0);
 
 const LANG_OVERRIDE = {
   'es': 'es-US',
+  'en': 'en-US',
 };
 async function announceMessage(message, language) {
     return new Promise((resolve) => {
