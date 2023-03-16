@@ -1,6 +1,7 @@
 const axios = require('axios');
 const crypto = require('crypto');
 const express = require('express');
+const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 const FormData = require('form-data');
 const { detect } = require('langdetect');
@@ -10,7 +11,6 @@ const { Configuration, OpenAIApi } = require('openai');
 const path = require('path');
 
 const app = express();
-const upload = multer({ dest: 'uploads/' });
 
 const OPENAI_KEY = process.env.OPENAI_KEY;
 const configuration = new Configuration({
@@ -21,6 +21,8 @@ const openai = new OpenAIApi(configuration);
 const UPLOAD_FOLDER = 'uploads';
 const GENERATE_FOLDER = 'generated';
 const LOGS_FOLDER = 'logs';
+
+const upload = multer({ dest: UPLOAD_FOLDER + '/' });
 
 for (let folder of [UPLOAD_FOLDER, GENERATE_FOLDER, LOGS_FOLDER]) {
   if (!fs.existsSync(folder)) {
@@ -37,6 +39,8 @@ const IMAGE_PRICING = {
   '512x512': 0.018,
   '1024x1024': 0.02,
 };
+
+const WHISPER_PRICE = 0.006 / 60;
 
 const IMAGE_REGEX = /IMAGE\(([^)]*)\)/g;
 const IMAGE_SIZE = '512x512';
@@ -83,6 +87,9 @@ async function transcribeAudioFile(filePath) {
     formData.append('file', fs.createReadStream(filePath));
     formData.append('model', 'whisper-1');
 
+    const audioDuration = await getAudioDuration(filePath);
+    const cost = Math.ceil(audioDuration) * WHISPER_PRICE;
+
     try {
         const response = await axios.post(
             'https://api.openai.com/v1/audio/transcriptions',
@@ -94,14 +101,16 @@ async function transcribeAudioFile(filePath) {
                 },
             }
         );
-        // Save metadata to disk
+        // Save logs to disk
         fs.writeFileSync(
             path.join(__dirname, LOGS_FOLDER, `transcribe-${createInferId()}.json`),
             JSON.stringify({
                 type: 'transcribe',
+                input: filePath,
                 response: response.data,
             }, null, 4));
 
+        console.log(`Transcribed ${audioDuration}s of audio: ${response.data.text} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset})`);
         return response.data.text;
     } catch (error) {
         console.error('Error transcribing audio:', error);
@@ -133,7 +142,7 @@ async function generateImageWithDallE(description) {
       fs.writeFileSync(
           path.join(__dirname, GENERATE_FOLDER, imageFile),
           Buffer.from(imageResponse.data), 'binary');
-      // Save metadata to disk
+      // Save logs to disk
       fs.writeFileSync(
           path.join(__dirname, LOGS_FOLDER, `image-${inferId}.json`),
           JSON.stringify({
@@ -154,27 +163,77 @@ async function generateImageWithDallE(description) {
   }
 }
 
+function getAudioDuration(filePath) {
+    return new Promise((resolve, reject) => {
+        ffmpeg.ffprobe(filePath, (error, metadata) => {
+            if (error) {
+                console.error('Error reading file:', error);
+                return;
+            }
+
+            resolve(metadata.format.duration);
+        });
+    });
+}
+
+function remuxAudio(input, output) {
+    return new Promise((resolve, reject) => {
+        ffmpeg(input)
+            .output(output)
+            .audioCodec('copy')
+            .noVideo()
+            .on('end', () => {
+                resolve();
+            })
+            .on('error', (err, stdout, stderr) => {
+                console.error('Error during remuxing:', err);
+                reject(err);
+            })
+            .run();
+    });
+}
+
+async function generateChatCompletion(messages) {
+    const input = {
+        model: CHAT_MODEL,
+        messages,
+    };
+    const response = await openai.createChatCompletion(input);
+    const cost = CHAT_PRICING[CHAT_MODEL] * response.data.usage.total_tokens;
+
+    // Save logs to disk
+    fs.writeFileSync(
+        path.join(__dirname, LOGS_FOLDER, `chat-${createInferId()}.json`),
+        JSON.stringify({
+            type: 'createChatCompletion',
+            input,
+            response: response.data,
+            cost,
+        }, null, 4));
+
+    const reply = response.data.choices[0].message.content;
+    console.log(`Assistant reply: ${reply} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset})`);
+    return reply;
+}
+
 app.post('/transcribe', upload.single('audio'), async (req, res) => {
     if (req.file) {
         const mimeType = req.body.mimeType;
         const fileExtension = getExtensionByMimeType(mimeType);
 
-        console.log(`Received audio of type ${mimeType} path ${req.file.path}`);
-
+        // Rename and re-encode file to add missing webm duration metadata
+        console.log(`Received audio of type ${mimeType} path ${req.file.path}, re-encoding...`);
         const oldPath = path.join(__dirname, req.file.path);
-        const newPath = path.join(__dirname, req.file.path + fileExtension);
-        fs.renameSync(oldPath, newPath);
+        const newPath = path.join(__dirname, UPLOAD_FOLDER, createInferId() + fileExtension);
+        await remuxAudio(oldPath, newPath);
+        fs.unlinkSync(oldPath);
 
-        console.log('Transcribing audio...');
         const transcribedText = await transcribeAudioFile(newPath);
         if (transcribedText) {
-            console.log(`Transcribed Text: ${transcribedText}`);
             res.status(200).send(transcribedText);
         } else {
             res.status(500).send('Transcription failed');
         }
-
-        fs.unlinkSync(newPath); // Delete the audio file after transcription
     } else {
         res.status(400).send('Upload failed');
     }
@@ -184,32 +243,20 @@ app.post('/chat', async (req, res) => {
     try {
         const { messages } = req.body;
 
-        const input = {
-            model: CHAT_MODEL,
-            messages,
-        };
-        const response = await openai.createChatCompletion(input);
-        const cost = CHAT_PRICING[CHAT_MODEL] * response.data.usage.total_tokens;
-        // Save metadata to disk
-        fs.writeFileSync(
-            path.join(__dirname, LOGS_FOLDER, `chat-${createInferId()}.json`),
-            JSON.stringify({
-                type: 'createChatCompletion',
-                input,
-                response: response.data,
-                cost,
-            }, null, 4));
-        const reply = response.data.choices[0].message.content;
-        console.log(`Assistant reply: ${reply} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset})`);
+        const reply = await generateChatCompletion(messages);
+
+        // Detect language to assist speech synthesis on frontend
         const language = await detectLanguage(reply);
-        const matches = new Set(Array.from(reply.matchAll(IMAGE_REGEX)));
+
+        // Use DALL-E to generate requested images
+        const imageMatches = new Set(Array.from(reply.matchAll(IMAGE_REGEX)));
         let replyWithImages = reply;
-        for (let [pattern, description] of matches) {
-          console.log(`Generating image for ${pattern} / ${description}`);
+        for (let [pattern, description] of imageMatches) {
           const imageFile = await generateImageWithDallE(description);
-          replyWithImages = replyWithImages.replaceAll(pattern, `![${description}](${imageFile}) (${description})`);
+          replyWithImages = replyWithImages.replaceAll(pattern, `![${description}](${imageFile})`);
         }
-        console.log(`Assistant reply with image markup: ${replyWithImages}`);
+
+        // Render markdown to HTML for display in the browser
         const html = markdown.render(replyWithImages);
 
         res.type('json');
