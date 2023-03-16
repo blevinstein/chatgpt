@@ -82,12 +82,15 @@ async function loadVoices() {
 }
 setTimeout(loadVoices, 0);
 
+const LANG_OVERRIDE = {
+  'es': 'es-US',
+};
 async function announceMessage(message, language) {
     return new Promise((resolve) => {
         console.log(`Creating a speech utterance in language ${language}`);
         const utterance = new SpeechSynthesisUtterance(message);
 
-        const chosenVoice = voices.find(v => v.lang.startsWith(language));
+        const chosenVoice = voices.find(v => v.lang.startsWith(LANG_OVERRIDE[language] || language));
         if (chosenVoice) {
           utterance.voice = chosenVoice;
         } else {
