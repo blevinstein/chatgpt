@@ -27,6 +27,28 @@ if (!fs.existsSync(GENERATE_FOLDER)) {
     fs.mkdirSync(GENERATE_FOLDER);
 }
 
+const CHAT_PRICING = {
+  'gpt-3.5-turbo': 0.002e-3,
+};
+
+const IMAGE_PRICING = {
+  '256x256': 0.016,
+  '512x512': 0.018,
+  '1024x1024': 0.02,
+};
+
+const IMAGE_REGEX = /IMAGE\(([^)]*)\)/g;
+const IMAGE_SIZE = '1024x1024';
+
+const CHAT_MODEL = 'gpt-3.5-turbo';
+
+const COLOR = {
+    reset: "\x1b[0m",
+    red: "\x1b[31m",
+    green: "\x1b[32m",
+    yellow: "\x1b[33m",
+};
+
 app.use(express.static('static'));
 app.use(express.static(GENERATE_FOLDER));
 app.use(express.json());
@@ -102,8 +124,7 @@ async function generateImageWithDallE(description) {
     const result = await openai.createImage({
       prompt: description,
       n: 1,
-      size: '256x256',
-      //size: '1024x1024',
+      size: IMAGE_SIZE,
     });
 
     if (result && result.data && result.data.data && result.data.data[0]) {
@@ -115,7 +136,7 @@ async function generateImageWithDallE(description) {
       const outputPath = path.join(__dirname, GENERATE_FOLDER, filename);
       fs.writeFileSync(outputPath, Buffer.from(imageResponse.data), 'binary');
 
-      console.log(`Image saved to ${outputPath}`);
+      console.log(`Image generated to ${outputPath} (${COLOR.red}cost: ${COLOR.green}\$${IMAGE_PRICING[IMAGE_SIZE].toFixed(3)}${COLOR.reset})`);
       return filename;
     } else {
       console.log('No image URL found in the response');
@@ -151,18 +172,17 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
     }
 });
 
-const IMAGE_REGEX = /IMAGE\(([^)]*)\)/g;
-
 app.post('/chat', async (req, res) => {
     try {
         const { messages } = req.body;
 
         const response = await openai.createChatCompletion({
-          model: 'gpt-3.5-turbo',
+          model: CHAT_MODEL,
           messages,
         });
         const reply = response.data.choices[0].message.content;
-        console.log(`Assistant reply: ${reply}`);
+        const cost = CHAT_PRICING[CHAT_MODEL] * response.data.usage.total_tokens;
+        console.log(`Assistant reply: ${reply} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(3)}${COLOR.reset})`);
         const language = await detectLanguage(reply);
         const matches = new Set(Array.from(reply.matchAll(IMAGE_REGEX)));
         let replyWithImages = reply;
