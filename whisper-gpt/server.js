@@ -19,12 +19,13 @@ const configuration = new Configuration({
 const openai = new OpenAIApi(configuration);
 
 const UPLOAD_FOLDER = 'uploads';
-if (!fs.existsSync(UPLOAD_FOLDER)) {
-    fs.mkdirSync(UPLOAD_FOLDER);
-}
 const GENERATE_FOLDER = 'generated';
-if (!fs.existsSync(GENERATE_FOLDER)) {
-    fs.mkdirSync(GENERATE_FOLDER);
+const LOGS_FOLDER = 'logs';
+
+for (let folder of [UPLOAD_FOLDER, GENERATE_FOLDER, LOGS_FOLDER]) {
+  if (!fs.existsSync(folder)) {
+      fs.mkdirSync(folder);
+  }
 }
 
 const CHAT_PRICING = {
@@ -53,6 +54,10 @@ app.use(express.static('static'));
 app.use(express.static(GENERATE_FOLDER));
 app.use(express.json());
 
+function createInferId() {
+    return crypto.randomBytes(6).toString('hex');
+}
+
 function getExtensionByMimeType(mimeType) {
     const extensions = {
         'audio/webm': '.webm',
@@ -69,7 +74,7 @@ function getExtensionByMimeType(mimeType) {
 
 async function detectLanguage(text) {
   const languages = detect(text);
-  console.log(`Inferred languages for \"${text}\": ${JSON.stringify(languages)}`);
+  console.log(`Inferred languages: ${JSON.stringify(languages)}`);
   return languages[0].lang;
 }
 
@@ -89,10 +94,17 @@ async function transcribeAudioFile(filePath) {
                 },
             }
         );
+        // Save metadata to disk
+        fs.writeFileSync(
+            path.join(__dirname, LOGS_FOLDER, `transcribe-${createInferId()}.json`),
+            JSON.stringify({
+                type: 'transcribe',
+                response: response.data,
+            }, null, 4));
 
         return response.data.text;
     } catch (error) {
-        console.error('Error transcribing audio:', error.response.data || error);
+        console.error('Error transcribing audio:', error);
         return null;
     }
 }
@@ -100,23 +112,40 @@ async function transcribeAudioFile(filePath) {
 async function generateImageWithDallE(description) {
   try {
     // Use the DALL-E API to generate an image from the description
-    const result = await openai.createImage({
-      prompt: description,
-      n: 1,
-      size: IMAGE_SIZE,
-    });
+    const generateInput = {
+        prompt: description,
+        n: 1,
+        size: IMAGE_SIZE,
+    };
+    const generateResponse = await openai.createImage(generateInput);
 
-    if (result && result.data && result.data.data && result.data.data[0]) {
-      const imageUrl = result.data.data[0].url;
+    if (generateResponse
+        && generateResponse.data
+        && generateResponse.data.data
+        && generateResponse.data.data[0]) {
+      const imageUrl = generateResponse.data.data[0].url;
       const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
 
       // Save the image to disk
-      const filename = `${crypto.randomBytes(6).toString('hex')}.png`;
-      const outputPath = path.join(__dirname, GENERATE_FOLDER, filename);
-      fs.writeFileSync(outputPath, Buffer.from(imageResponse.data), 'binary');
+      const inferId = createInferId();
+      const imageFile = `${inferId}.png`;
+      const cost = IMAGE_PRICING[IMAGE_SIZE];
+      fs.writeFileSync(
+          path.join(__dirname, GENERATE_FOLDER, imageFile),
+          Buffer.from(imageResponse.data), 'binary');
+      // Save metadata to disk
+      fs.writeFileSync(
+          path.join(__dirname, LOGS_FOLDER, `image-${inferId}.json`),
+          JSON.stringify({
+              type: 'createImage',
+              input: generateInput,
+              response: generateResponse.data,
+              cost,
+              imageFile,
+          }, null, 4));
 
-      console.log(`Image generated to ${outputPath} (${COLOR.red}cost: ${COLOR.green}\$${IMAGE_PRICING[IMAGE_SIZE].toFixed(3)}${COLOR.reset})`);
-      return filename;
+      console.log(`Image generated to ${imageFile} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(3)}${COLOR.reset})`);
+      return imageFile;
     } else {
       console.log('No image URL found in the response');
     }
@@ -155,12 +184,22 @@ app.post('/chat', async (req, res) => {
     try {
         const { messages } = req.body;
 
-        const response = await openai.createChatCompletion({
-          model: CHAT_MODEL,
-          messages,
-        });
-        const reply = response.data.choices[0].message.content;
+        const input = {
+            model: CHAT_MODEL,
+            messages,
+        };
+        const response = await openai.createChatCompletion(input);
         const cost = CHAT_PRICING[CHAT_MODEL] * response.data.usage.total_tokens;
+        // Save metadata to disk
+        fs.writeFileSync(
+            path.join(__dirname, LOGS_FOLDER, `chat-${createInferId()}.json`),
+            JSON.stringify({
+                type: 'createChatCompletion',
+                input,
+                response: response.data,
+                cost,
+            }, null, 4));
+        const reply = response.data.choices[0].message.content;
         console.log(`Assistant reply: ${reply} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset})`);
         const language = await detectLanguage(reply);
         const matches = new Set(Array.from(reply.matchAll(IMAGE_REGEX)));
