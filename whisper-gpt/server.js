@@ -38,7 +38,7 @@ const IMAGE_PRICING = {
 };
 
 const IMAGE_REGEX = /IMAGE\(([^)]*)\)/g;
-const IMAGE_SIZE = '1024x1024';
+const IMAGE_SIZE = '512x512';
 
 const CHAT_MODEL = 'gpt-3.5-turbo';
 
@@ -182,7 +182,7 @@ app.post('/chat', async (req, res) => {
         });
         const reply = response.data.choices[0].message.content;
         const cost = CHAT_PRICING[CHAT_MODEL] * response.data.usage.total_tokens;
-        console.log(`Assistant reply: ${reply} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(3)}${COLOR.reset})`);
+        console.log(`Assistant reply: ${reply} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset})`);
         const language = await detectLanguage(reply);
         const matches = new Set(Array.from(reply.matchAll(IMAGE_REGEX)));
         let replyWithImages = reply;
