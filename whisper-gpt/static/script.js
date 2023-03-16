@@ -76,7 +76,7 @@ async function loadVoices() {
   if (voices.length) {
     console.log(`Loaded ${voices.length} voices`);
   } else {
-    console.error('Voices are not yet ready');
+    console.log('Voices are not yet ready');
     setTimeout(loadVoices, LOAD_TIME);
   }
 }
