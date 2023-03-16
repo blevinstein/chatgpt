@@ -1,4 +1,5 @@
 const axios = require('axios');
+const crypto = require('crypto');
 const express = require('express');
 const fs = require('fs');
 const FormData = require('form-data');
@@ -21,8 +22,13 @@ const UPLOAD_FOLDER = 'uploads';
 if (!fs.existsSync(UPLOAD_FOLDER)) {
     fs.mkdirSync(UPLOAD_FOLDER);
 }
+const GENERATE_FOLDER = 'generated';
+if (!fs.existsSync(GENERATE_FOLDER)) {
+    fs.mkdirSync(GENERATE_FOLDER);
+}
 
 app.use(express.static('static'));
+app.use(express.static(GENERATE_FOLDER));
 app.use(express.json());
 
 function getExtensionByMimeType(mimeType) {
@@ -90,6 +96,34 @@ async function transcribeAudioFile(filePath) {
     }
 }
 
+async function generateImageWithDallE(description) {
+  try {
+    // Use the DALL-E API to generate an image from the description
+    const result = await openai.createImage({
+      prompt: description,
+      n: 1,
+      size: '256x256',
+      //size: '1024x1024',
+    });
+
+    if (result && result.data && result.data.data && result.data.data[0]) {
+      const imageUrl = result.data.data[0].url;
+      const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+
+      // Save the image to disk
+      const filename = `${crypto.randomBytes(6).toString('hex')}.png`;
+      const outputPath = path.join(__dirname, GENERATE_FOLDER, filename);
+      fs.writeFileSync(outputPath, Buffer.from(imageResponse.data), 'binary');
+
+      console.log(`Image saved to ${outputPath}`);
+      return filename;
+    } else {
+      console.log('No image URL found in the response');
+    }
+  } catch (error) {
+    console.error('Error generating image with DALL-E:', error.message);
+  }
+}
 
 app.post('/transcribe', upload.single('audio'), async (req, res) => {
     if (req.file) {
@@ -117,6 +151,8 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
     }
 });
 
+const IMAGE_REGEX = /IMAGE\(([^)]*)\)/g;
+
 app.post('/chat', async (req, res) => {
     try {
         const { messages } = req.body;
@@ -126,11 +162,18 @@ app.post('/chat', async (req, res) => {
           messages,
         });
         const reply = response.data.choices[0].message.content;
-        console.log(response.data.choices[0].message);
-        const language = await detectLanguage(reply);
-        const html = markdown.render(reply);
-
         console.log(`Assistant reply: ${reply}`);
+        const language = await detectLanguage(reply);
+        const matches = new Set(Array.from(reply.matchAll(IMAGE_REGEX)));
+        let replyWithImages = reply;
+        for (let [pattern, description] of matches) {
+          console.log(`Generating image for ${pattern} / ${description}`);
+          const imageFile = await generateImageWithDallE(description);
+          replyWithImages = replyWithImages.replaceAll(pattern, `![${description}](${imageFile}) (${description})`);
+        }
+        console.log(`Assistant reply with image markup: ${replyWithImages}`);
+        const html = markdown.render(replyWithImages);
+
         res.type('json');
         res.status(200).send(JSON.stringify({ text: reply, language, html }));
     } catch (error) {

@@ -179,7 +179,8 @@ function resetRecordButton() {
 //const SYSTEM_PROMPT = 'You are Darth Vader. Provide assistance to the user only if you feel like it.';
 //const SYSTEM_PROMPT = 'You are a helpful assistant who is trying to sell products to the user. Each time you answer a query, if you can, include a recommendation for a product sold on Amazon.';
 
-const SYSTEM_PROMPT = 'You are a helpful assistant. Your messages are being conveyed by audio, so keep your responses concise, and elaborate only when requested by the user.';
+//const SYSTEM_PROMPT = 'You are a helpful assistant. Your messages are being conveyed by audio, so keep your responses concise, and elaborate only when requested by the user.';
+const SYSTEM_PROMPT = 'You are a helpful assistant. At times, a user may desire a response with an image. To generate one, include `IMAGE(Description of the image to send)` in your response. Do NOT send any raw URLs like `IMAGE(https://some-website.com/kitty.png).`';
 
 displayMessage('system', SYSTEM_PROMPT, createListItemWithSpinner());
 
