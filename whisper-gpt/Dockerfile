@@ -1,5 +1,5 @@
 # Choose the Node.js image
-FROM node:14
+FROM node:19
 
 # Set the working directory
 WORKDIR /app
