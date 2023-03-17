@@ -1,3 +1,4 @@
+let mediaStream;
 let mediaRecorder;
 let recordedBlobs;
 let messages = [];
@@ -24,8 +25,8 @@ textInput.addEventListener('keypress', async (event) => {
 });
 
 async function initMediaRecorder() {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(mediaStream);
     recordedBlobs = [];
 
     mediaRecorder.ondataavailable = (event) => {
@@ -127,7 +128,6 @@ async function stopRecordingAndUpload() {
 
     resetRecordButton();
 
-    mediaRecorder.stop();
     mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(recordedBlobs, { type: 'audio/webm' });
         const formData = new FormData();
@@ -160,6 +160,8 @@ async function stopRecordingAndUpload() {
 
         await requestChatResponse();
     };
+    mediaRecorder.stop();
+    mediaStream.getTracks().forEach(t => t.stop());
 }
 
 // Crude method of escaping user input which might have HTML-unsafe characters
