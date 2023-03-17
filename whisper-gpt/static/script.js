@@ -4,8 +4,11 @@ let messages = [];
 
 const recordButton = document.getElementById('recordButton');
 recordButton.addEventListener('mousedown', startRecording);
+recordButton.addEventListener('touchstart', startRecording);
 recordButton.addEventListener('mouseup', stopRecordingAndUpload);
 recordButton.addEventListener('mouseleave', stopRecordingAndUpload);
+recordButton.addEventListener('touchend', stopRecordingAndUpload);
+recordButton.addEventListener('touchcancel', stopRecordingAndUpload);
 
 const stopAudioButton = document.getElementById('stopAudioButton');
 stopAudioButton.addEventListener('click', () => window.speechSynthesis.cancel());
