@@ -1,5 +1,6 @@
 const axios = require('axios');
 const crypto = require('crypto');
+const dotenv = require('dotenv');
 const express = require('express');
 const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
@@ -8,9 +9,12 @@ const { detect } = require('langdetect');
 const markdown = require('markdown-it')();
 const multer = require('multer');
 const { Configuration, OpenAIApi } = require('openai');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const path = require('path');
+const session = require('express-session');
 
-const app = express();
+dotenv.config();
 
 const OPENAI_KEY = process.env.OPENAI_KEY;
 const configuration = new Configuration({
@@ -54,9 +58,46 @@ const COLOR = {
     yellow: "\x1b[33m",
 };
 
-app.use(express.static('static'));
-app.use(express.static(GENERATE_FOLDER));
+const app = express();
+
+// Setup JSON parsing
 app.use(express.json());
+
+// Initialize Passport and enable session support
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+}));
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Configure Passport to use the Google OAuth2.0 strategy
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: "/auth/google/callback"
+  },
+  (accessToken, refreshToken, profile, cb) => {
+    // You can store user details in a database here
+    return cb(null, profile);
+  }
+));
+
+// Serialize and deserialize user instances to and from the session
+passport.serializeUser((user, done) => {
+  done(null, user);
+});
+
+passport.deserializeUser((user, done) => {
+  done(null, user);
+});
+
+// Setup static serving
+app.use(serveAuthenticatedStatic('static'));
+//app.use(express.static('static'));
+app.use(express.static(GENERATE_FOLDER));
+
 
 function createInferId() {
     return crypto.randomBytes(6).toString('hex');
@@ -216,6 +257,25 @@ async function generateChatCompletion(messages) {
     return reply;
 }
 
+function ensureAuthenticated(req, res, next) {
+    if (req.isAuthenticated()
+        || req.path === '/login'
+        || req.path === '/auth/google/callback') {
+        return next();
+    }
+    res.sendFile('views/forbidden.html', { root: __dirname });
+}
+
+function serveAuthenticatedStatic(staticPath) {
+  return (req, res, next) => {
+      ensureAuthenticated(req, res, () => {
+          express.static(staticPath)(req, res, next);
+      });
+  }
+}
+
+
+
 app.post('/transcribe', upload.single('audio'), async (req, res) => {
     if (req.file) {
         const mimeType = req.body.mimeType;
@@ -267,6 +327,22 @@ app.post('/chat', async (req, res) => {
     }
 });
 
+app.get('/', function (req, res) {
+    res.sendFile('views/index.html', { root: __dirname });
+});
+
+app.get('/login',
+    passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+app.get('/auth/google/callback',
+    passport.authenticate('google', { successRedirect: '/', failureRedirect: '/login' }));
+
+app.get('/logout', function (req, res) {
+    req.logout((error) => {
+        if (error) return next(error);
+        res.redirect('/');
+    });
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

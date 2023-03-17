@@ -5,19 +5,23 @@
   "license": "MIT",
   "scripts": {
     "start": "node server.js",
-    "create-stack": "aws cloudformation create-stack --stack-name WhisperGpt --template-body file://template.yaml --capabilities CAPABILITY_NAMED_IAM",
-    "update-stack": "aws cloudformation update-stack --stack-name WhisperGpt --template-body file://template.yaml --capabilities CAPABILITY_NAMED_IAM",
-    "delete-stack": "aws cloudformation delete-stack --stack-name WhisperGpt",
-    "describe-stacks": "aws cloudformation describe-stacks --stack-name WhisperGpt"
+    "create-stack": "aws cloudformation create-stack --stack-name WhisperGptDev --template-body file://template.yaml --capabilities CAPABILITY_NAMED_IAM --parameters file://parameters.json",
+    "update-stack": "aws cloudformation update-stack --stack-name WhisperGptDev --template-body file://template.yaml --capabilities CAPABILITY_NAMED_IAM --parameters file://parameters.json",
+    "delete-stack": "aws cloudformation delete-stack --stack-name WhisperGptDev"
   },
   "dependencies": {
     "axios": "^1.3.4",
+    "dotenv": "^16.0.3",
     "express": "^4.18.2",
+    "express-session": "^1.17.3",
     "fluent-ffmpeg": "^2.1.2",
     "langdetect": "^0.2.1",
     "langs": "^2.0.0",
     "markdown-it": "^13.0.1",
     "multer": "^1.4.5-lts.1",
-    "openai": "^3.2.1"
+    "openai": "^3.2.1",
+    "passport": "^0.6.0",
+    "passport-auth0": "^1.4.3",
+    "passport-google-oauth20": "^2.0.0"
   }
 }
