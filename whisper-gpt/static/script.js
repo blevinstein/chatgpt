@@ -39,6 +39,8 @@ async function initMediaRecorder() {
 function startRecording() {
     window.speechSynthesis.cancel();
 
+    if (mediaRecorder && mediaRecorder.state === 'recording') return;
+
     recordButton.classList.add('recording');
     recordButton.textContent = 'Recording...';
 
