@@ -1,0 +1,18 @@
+[
+  {
+    "ParameterKey": "EnvironmentName",
+    "ParameterValue": "dev"
+  },
+  {
+    "ParameterKey": "VpcId",
+    "ParameterValue": "vpc-0ffa080bc55e63529"
+  },
+  {
+    "ParameterKey": "Subnet1",
+    "ParameterValue": "subnet-0a6619713c9807052"
+  },
+  {
+    "ParameterKey": "Subnet2",
+    "ParameterValue": "subnet-05701ba825693769d"
+  }
+]

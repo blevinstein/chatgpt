@@ -2,15 +2,24 @@ Parameters:
   EnvironmentName:
     Description: The environment name (e.g., dev, prod, staging)
     Type: String
+  VpcId:
+    Description: VPC that allows access to the Internet.
+    Type: AWS::EC2::VPC::Id
+  Subnet1:
+    Description: First subnet
+    Type: AWS::EC2::Subnet::Id
+  Subnet2:
+    Description: Second subnet
+    Type: AWS::EC2::Subnet::Id
 
 Resources:
 
-  NodeServerCluster:
+  WhisperGptCluster:
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: !Sub whisper-gpt-cluster-${EnvironmentName}
 
-  NodeServerTaskDefinition:
+  WhisperGptTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
       ExecutionRoleArn: !Ref ECSTaskExecutionRole
@@ -37,11 +46,11 @@ Resources:
               awslogs-region: !Ref "AWS::Region"
               awslogs-stream-prefix: ecs
 
-  NodeServerService:
+  WhisperGptService:
     Type: AWS::ECS::Service
     Properties:
-      Cluster: !Ref NodeServerCluster
-      TaskDefinition: !Ref NodeServerTaskDefinition
+      Cluster: !Ref WhisperGptCluster
+      TaskDefinition: !Ref WhisperGptTaskDefinition
       DesiredCount: 1
       LaunchType: FARGATE
       NetworkConfiguration:
@@ -52,6 +61,10 @@ Resources:
             - !Ref Subnet2
           SecurityGroups:
             - !Ref SecurityGroup
+      LoadBalancers:
+        - TargetGroupArn: !Ref TargetGroup
+          ContainerName: !Sub whisper-gpt-container-${EnvironmentName}
+          ContainerPort: 3000
 
   ECSTaskExecutionRole:
     Type: AWS::IAM::Role
@@ -107,72 +120,11 @@ Resources:
     Properties:
       LogGroupName: !Sub /ecs/whisper-gpt-${EnvironmentName}
 
-  VPC:
-    Type: AWS::EC2::VPC
-    Properties:
-      CidrBlock: 10.0.0.0/16
-      EnableDnsSupport: true
-      EnableDnsHostnames: true
-
-  InternetGateway:
-    Type: AWS::EC2::InternetGateway
-
-  VPCGatewayAttachment:
-    Type: AWS::EC2::VPCGatewayAttachment
-    Properties:
-      VpcId: !Ref VPC
-      InternetGatewayId: !Ref InternetGateway
-
-  Subnet1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.1.0/24
-      AvailabilityZone:
-        Fn::Select:
-          - 0
-          - Fn::GetAZs: !Ref "AWS::Region"
-
-  Subnet2:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.2.0/24
-      AvailabilityZone:
-        Fn::Select:
-          - 1
-          - Fn::GetAZs: !Ref "AWS::Region"
-
-  RouteTable:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPC
-
-  Subnet1RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref Subnet1
-      RouteTableId: !Ref RouteTable
-
-  Subnet2RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref Subnet2
-      RouteTableId: !Ref RouteTable
-
-  InternetGatewayRoute:
-    Type: AWS::EC2::Route
-    DependsOn: VPCGatewayAttachment
-    Properties:
-      RouteTableId: !Ref RouteTable
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway
-
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: ECS Security Group
-      VpcId: !Ref VPC
+      VpcId: !Ref VpcId
       SecurityGroupIngress:
         - CidrIp: 0.0.0.0/0
           IpProtocol: tcp
@@ -188,19 +140,28 @@ Resources:
           FromPort: -1
           ToPort: -1
 
-  ElasticIP:
-    Type: AWS::EC2::EIP
-
-  NatGateway:
-    Type: AWS::EC2::NatGateway
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      AllocationId: !GetAtt ElasticIP.AllocationId
-      SubnetId: !Ref Subnet1
+      Port: 3000
+      Protocol: HTTP
+      TargetType: ip
+      VpcId: !Ref VpcId
 
-  PrivateRoute:
-    Type: AWS::EC2::Route
+  # Add new rule to existing ELB Listener
+  ListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Properties:
-      RouteTableId: !Ref RouteTable
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NatGateway
+      ListenerArn: arn:aws:elasticloadbalancing:us-east-1:426523829637:listener/app/avaxbridgeapes-elb/ce9e65b759c5db65/c129a57b7facf391
+      Priority: 1
+      Conditions:
+        - Field: host-header
+          HostHeaderConfig:
+            Values:
+              - "synaptek.bio"
+              - "www.synaptek.bio"
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
 

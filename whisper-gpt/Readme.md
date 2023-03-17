@@ -4,8 +4,11 @@ Simple application for interacting with ChatGPT via audio transcription (Whisper
 
 ## TODOs
 
+Application:
 - Persist chat conversations, allow resuming
-- Add auth and productionize on AWS for internal use
 - Prototype headless deployment (via text messages)
 - Experiment with other special-token add-ons
+
+Infra:
+- Use secrets manager
 
