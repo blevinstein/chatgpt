@@ -2,6 +2,15 @@ Parameters:
   EnvironmentName:
     Description: The environment name (e.g., dev, prod, staging)
     Type: String
+  VpcId:
+    Description: VPC that allows access to the Internet.
+    Type: AWS::EC2::VPC::Id
+  SubnetA:
+    Description: First subnet
+    Type: AWS::EC2::Subnet::Id
+  SubnetB:
+    Description: Second subnet
+    Type: AWS::EC2::Subnet::Id
 
 Resources:
 
@@ -14,7 +23,7 @@ Resources:
     Type: AWS::ECS::TaskDefinition
     Properties:
       ExecutionRoleArn: !Ref ECSTaskExecutionRole
-      NetworkMode: 'awsvpc'
+      NetworkMode: awsvpc
       Cpu: 256
       Memory: 512
       RequiresCompatibilities:
@@ -47,9 +56,10 @@ Resources:
       LaunchType: FARGATE
       NetworkConfiguration:
         AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
           Subnets:
-            - !Ref Subnet1
-            - !Ref Subnet2
+            - !Ref SubnetA
+            - !Ref SubnetB
           SecurityGroups:
             - !Ref SecurityGroup
 
@@ -99,82 +109,18 @@ Resources:
                   - ecr:DescribeImages
                   - ecr:BatchGetImage
                 Resource: '*'
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+                #Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/whisper-gpt-dev
 
   CloudWatchLogsGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /ecs/whisper-gpt-${EnvironmentName}
 
-  # Replace the following VPC, Subnet, and Security Group resources with your own setup.
-  VPC:
-    Type: AWS::EC2::VPC
-    Properties:
-      CidrBlock: 10.0.0.0/16
-      EnableDnsSupport: true
-      EnableDnsHostnames: true
-
-  InternetGateway:
-    Type: AWS::EC2::InternetGateway
-
-  VPCGatewayAttachment:
-    Type: AWS::EC2::VPCGatewayAttachment
-    Properties:
-      VpcId: !Ref VPC
-      InternetGatewayId: !Ref InternetGateway
-
-  Subnet1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.1.0/24
-      AvailabilityZone:
-        Fn::Select:
-          - 0
-          - Fn::GetAZs: !Ref "AWS::Region"
-
-  Subnet2:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.2.0/24
-      AvailabilityZone:
-        Fn::Select:
-          - 1
-          - Fn::GetAZs: !Ref "AWS::Region"
-
-  RouteTable:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPC
-
-  Subnet1RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref Subnet1
-      RouteTableId: !Ref RouteTable
-
-  Subnet2RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref Subnet2
-      RouteTableId: !Ref RouteTable
-
-  InternetGatewayRoute:
-    Type: AWS::EC2::Route
-    DependsOn: VPCGatewayAttachment
-    Properties:
-      RouteTableId: !Ref RouteTable
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway
-
-
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: ECS Security Group
-      VpcId: !Ref VPC
+      VpcId: !Ref VpcId
       SecurityGroupIngress:
         - CidrIp: 0.0.0.0/0
           IpProtocol: tcp

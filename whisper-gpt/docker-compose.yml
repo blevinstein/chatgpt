@@ -1,10 +1,11 @@
 version: "3.3"
 services:
   whisper-gpt:
-    image: whisper-gpt
+    image: whisper-gpt-${ENV}
     build:
       context: .
     ports:
       - 3000:3000
     environment:
       - OPENAI_KEY
+    platform: linux/amd64
