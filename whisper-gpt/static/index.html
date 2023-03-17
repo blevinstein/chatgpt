@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Whisper ChatGPT</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         .spinner {
             display: inline-block;
             width: 20px;
@@ -37,12 +41,36 @@
             text-align: center;
             line-height: 50px;
         }
+
+        #sendTextButton {
+            width: 100px;
+            height: 50px;
+            text-align: center;
+            line-height: 50px;
+        }
+
+        #messageList img {
+            max-width: 75%;
+        }
+
+        #textInput {
+            width: 200px;
+            height: 50px;
+        }
+
+        #controlBar {
+            display: flex;
+        }
   </style>
 </head>
 <body>
     <h1>Whisper ChatGPT</h1>
-    <button id="recordButton">Press and hold to record</button>
-    <button id="stopAudioButton">Stop talking</button>
+    <div id="controlBar">
+        <button id="recordButton">Press and hold to talk</button>
+        <button id="stopAudioButton">Stop talking</button>
+        <textarea id="textInput"></textarea>
+        <button id="sendTextButton">Send</button>
+    </div>
 
     <div id="transcriptionsContainer">
         <ul id="messageList"></ul>

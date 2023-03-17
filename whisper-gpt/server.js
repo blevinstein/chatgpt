@@ -43,7 +43,7 @@ const IMAGE_PRICING = {
 const WHISPER_PRICE = 0.006 / 60;
 
 const IMAGE_REGEX = /IMAGE\(([^)]*)\)/g;
-const IMAGE_SIZE = '512x512';
+const IMAGE_SIZE = '1024x1024';
 
 const CHAT_MODEL = 'gpt-3.5-turbo';
 

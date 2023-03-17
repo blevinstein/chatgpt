@@ -10,6 +10,16 @@ recordButton.addEventListener('mouseleave', stopRecordingAndUpload);
 const stopAudioButton = document.getElementById('stopAudioButton');
 stopAudioButton.addEventListener('click', () => window.speechSynthesis.cancel());
 
+const sendTextButton = document.getElementById('sendTextButton');
+sendTextButton.addEventListener('click', sendTextMessage);
+
+const textInput = document.getElementById('textInput');
+textInput.addEventListener('keypress', async (event) => {
+    if (event.key === 'Enter') {
+        await sendTextMessage();
+    }
+});
+
 async function initMediaRecorder() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaRecorder = new MediaRecorder(stream);
@@ -109,9 +119,7 @@ async function announceMessage(message, language) {
     });
 }
 
-
-
-function stopRecordingAndUpload() {
+async function stopRecordingAndUpload() {
     if (!mediaRecorder || mediaRecorder.state == 'inactive') return;
 
     resetRecordButton();
@@ -147,32 +155,47 @@ function stopRecordingAndUpload() {
             return;
         }
 
-        const chatListItem = createListItemWithSpinner();
-
-        try {
-            const chatResponse = await fetch('/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages }),
-            });
-
-            if (chatResponse.ok) {
-                const { text: chat, language, html } = await chatResponse.json();
-                console.log(`Chat response successful: ${chat}`);
-                displayMessage('assistant', chat, chatListItem, html);
-                announceMessage(chat, language);
-            } else {
-                console.error('Error completing chat:', chatResponse.statusText);
-                chatListItem.remove();
-            }
-        } catch (error) {
-            console.error('Error completing chat:', error);
-            chatListItem.remove(); // Remove the listItem if the upload fails
-            return;
-        }
+        await requestChatResponse();
     };
 }
 
+// Crude method of escaping user input which might have HTML-unsafe characters
+function escapeHTML(unsafeText) {
+    let div = document.createElement('div');
+    div.innerText = unsafeText;
+    return div.innerHTML;
+}
+
+async function sendTextMessage() {
+    displayMessage('user', textInput.value, createListItemWithSpinner(), escapeHTML(textInput.value));
+    await requestChatResponse();
+}
+
+async function requestChatResponse() {
+    const chatListItem = createListItemWithSpinner();
+
+    try {
+        const chatResponse = await fetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages }),
+        });
+
+        if (chatResponse.ok) {
+            const { text: chat, language, html } = await chatResponse.json();
+            console.log(`Chat response successful: ${chat}`);
+            displayMessage('assistant', chat, chatListItem, html);
+            announceMessage(chat, language);
+        } else {
+            console.error('Error completing chat:', chatResponse.statusText);
+            chatListItem.remove();
+        }
+    } catch (error) {
+        console.error('Error completing chat:', error);
+        chatListItem.remove(); // Remove the listItem if the upload fails
+        return;
+    }
+}
 
 function resetRecordButton() {
     recordButton.classList.remove('recording');
@@ -184,7 +207,8 @@ function resetRecordButton() {
 //const SYSTEM_PROMPT = 'You are a helpful assistant who is trying to sell products to the user. Each time you answer a query, if you can, include a recommendation for a product sold on Amazon.';
 
 //const SYSTEM_PROMPT = 'You are a helpful assistant. Your messages are being conveyed by audio, so keep your responses concise, and elaborate only when requested by the user.';
-const SYSTEM_PROMPT = 'You are a helpful assistant. At times, a user may explicitly request a response with an image. To send one, include `IMAGE(Description of the image to send)` in your response. Make your descriptions as detailed as you can, but not longer than 200 words. Do NOT send any raw URLs like `IMAGE(https://some-website.com/kitty.png).`';
+//const SYSTEM_PROMPT = 'You are a helpful assistant. At times, a user may explicitly request a response with an image. To send one, include `IMAGE(Description of the image to send)` in your response. Make your descriptions as detailed as you can, but not longer than 200 words. Do NOT send any raw URLs like `IMAGE(https://some-website.com/kitty.png).`';
+const SYSTEM_PROMPT = 'You are a helpful assistant. At times, a user may explicitly request a response with an image. To send one, include `IMAGE(Description of the image to send)` in your response. Make your descriptions as detailed as you can, but not longer than 200 words. Do NOT send any raw URLs like `IMAGE(https://some-website.com/kitty.png). Your messages are being conveyed by audio, so keep your responses concise, and elaborate only when requested by the user.`';
 
 displayMessage('system', SYSTEM_PROMPT, createListItemWithSpinner());
 
