@@ -34,6 +34,15 @@
         }
 
         #recordButton,
+        #sendTextButton {
+            background-color: #4CAF50;
+        }
+
+        #stopAudioButton {
+            background-color: #f00;
+        }
+
+        #recordButton,
         #stopAudioButton,
         #sendTextButton {
             display: flex;
@@ -45,7 +54,6 @@
             line-height: 50px;
             user-select: none;
             cursor: pointer;
-            background-color: #4CAF50;
             color: white;
             border: none;
             margin: 5px;
@@ -61,10 +69,13 @@
             animation: pulse 1s infinite;
         }
 
-        #recordButton:hover,
-        #stopAudioButton:hover,
+        #recordButton:hover:not(.recording),
         #sendTextButton:hover {
             background-color: #45a049;
+        }
+
+        #stopAudioButton:hover {
+            background-color: #d00;
         }
 
         #messageList {
