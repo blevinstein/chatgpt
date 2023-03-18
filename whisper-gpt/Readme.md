@@ -8,6 +8,7 @@ Application:
 - Persist chat conversations, allow resuming
 - Prototype headless deployment (via text messages)
 - Experiment with other special-token add-ons
+- Add system prompt selection, on-disk library
 
 Infra:
 - Use secrets manager

@@ -44,7 +44,6 @@ function startRecording() {
     if (mediaRecorder && mediaRecorder.state === 'recording') return;
 
     recordButton.classList.add('recording');
-    recordButton.textContent = 'Recording...';
 
     initMediaRecorder().then(() => {
         mediaRecorder.start();
@@ -212,7 +211,6 @@ async function requestChatResponse() {
 
 function resetRecordButton() {
     recordButton.classList.remove('recording');
-    recordButton.textContent = 'Press and hold to record';
 }
 
 //const SYSTEM_PROMPT = 'You are a helpful assistant.';

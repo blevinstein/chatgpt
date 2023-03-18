@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Whisper ChatGPT</title>
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.0/css/all.min.css"
+        crossorigin="anonymous">
     <style>
         * {
             box-sizing: border-box;
@@ -30,15 +33,12 @@
             to { transform: rotate(360deg); }
         }
 
-        .recording {
-            background-color: #f00;
-            color: #fff;
-        }
-
         #recordButton,
         #stopAudioButton,
         #sendTextButton {
-            display: inline-block;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             width: 100px;
             height: 50px;
             text-align: center;
@@ -49,6 +49,16 @@
             color: white;
             border: none;
             margin: 5px;
+            font-size: 1.5rem;
+        }
+
+        #recordButton.recording {
+            background-color: #f00;
+            color: #fff;
+        }
+
+        #recordButton.recording i {
+            animation: pulse 1s infinite;
         }
 
         #recordButton:hover,
@@ -87,15 +97,15 @@
         #textInput {
             flex-grow: 1;
             height: 50px;
-            resize: none;
+            resize: vertical;
             margin: 5px 0;
-            padding: 10px;
+            padding: 5px;
         }
 
         #logout {
             display: inline-block;
             text-decoration: none;
-            margin: 5px 10px;
+            padding: 5px 10px;
             color: #000;
         }
 
@@ -124,17 +134,30 @@
         }
 
         #micControls {
-          display: flex;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         #textControls {
             display: flex;
+            justify-content: center;
+            align-items: center;
             flex-grow: 1;
         }
 
         @media (max-width: 480px) {
             #controlBar {
                 flex-direction: column;
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
             }
         }
     </style>
@@ -149,12 +172,12 @@
         <ul id="messageList"></ul>
         <div id="controlBar">
           <div id="micControls">
-            <button id="recordButton">Talk</button>
-            <button id="stopAudioButton">Stop</button>
+            <button id="recordButton"><i class="fas fa-microphone"></i></button>
+            <button id="stopAudioButton"><i class="fas fa-stop"></i></button>
           </div>
           <div id="textControls">
             <textarea id="textInput" rows="2" placeholder="Type your message"></textarea>
-            <button id="sendTextButton">Send</button>
+            <button id="sendTextButton"><i class="fas fa-comment"></i></button>
           </div>
         </div>
     </div>
