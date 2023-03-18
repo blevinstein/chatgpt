@@ -25,7 +25,8 @@ const configuration = new Configuration({
 });
 const openai = new OpenAIApi(configuration);
 const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN;
-const STABLE_DIFFUSION_MODEL = 'db21e45d3f7023abc2a46ee38a23973f6dce16bb082a930b0c49861f96d1e5bf';
+//const STABLE_DIFFUSION_MODEL = 'db21e45d3f7023abc2a46ee38a23973f6dce16bb082a930b0c49861f96d1e5bf';
+const STABLE_DIFFUSION_MODEL = 'f178fa7a1ae43a9a9af01b833b9d2ecf97b1bcb0acfd2dc5dd04895e042863f1';
 const REPLICATE_POLL_TIME = 500;
 
 const UPLOAD_FOLDER = 'uploads';
