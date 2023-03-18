@@ -60,7 +60,7 @@ const IMAGE_PRICING = {
 
 const WHISPER_PRICE = 0.006 / 60;
 
-const IMAGE_REGEX = /IMAGE\(([^)]*)\)/g;
+const IMAGE_REGEX = /IMAGE\s?\(([^)]*)\)/g;
 const IMAGE_SIZE = '1024x1024';
 
 const LS_REGEX = /LS\(([^)]*)\)/g;
