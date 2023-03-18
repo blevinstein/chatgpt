@@ -1,4 +1,6 @@
+const AWS = require('aws-sdk');
 const axios = require('axios');
+const child_process = require('child_process');
 const crypto = require('crypto');
 const dotenv = require('dotenv');
 const express = require('express');
@@ -12,6 +14,7 @@ const { Configuration, OpenAIApi } = require('openai');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const path = require('path');
+const sanitize = require('sanitize-filename');
 const session = require('express-session');
 
 dotenv.config();
@@ -21,14 +24,24 @@ const configuration = new Configuration({
     apiKey: OPENAI_KEY,
 });
 const openai = new OpenAIApi(configuration);
+const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN;
+const STABLE_DIFFUSION_MODEL = 'db21e45d3f7023abc2a46ee38a23973f6dce16bb082a930b0c49861f96d1e5bf';
+const REPLICATE_POLL_TIME = 500;
 
 const UPLOAD_FOLDER = 'uploads';
-const GENERATE_FOLDER = 'generated';
-const LOGS_FOLDER = 'logs';
-
+//const GENERATE_FOLDER = 'generated';
+const WORKSPACE_FOLDER = 'workspace';
 const upload = multer({ dest: UPLOAD_FOLDER + '/' });
 
-for (let folder of [UPLOAD_FOLDER, GENERATE_FOLDER, LOGS_FOLDER]) {
+AWS.config.update({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    region: process.env.AWS_REGION,
+});
+
+const s3 = new AWS.S3();
+
+for (let folder of [UPLOAD_FOLDER, WORKSPACE_FOLDER]) {
   if (!fs.existsSync(folder)) {
       fs.mkdirSync(folder);
   }
@@ -48,6 +61,10 @@ const WHISPER_PRICE = 0.006 / 60;
 
 const IMAGE_REGEX = /IMAGE\(([^)]*)\)/g;
 const IMAGE_SIZE = '1024x1024';
+
+const LS_REGEX = /LS\(([^)]*)\)/g;
+const CAT_REGEX = /CAT\(([^)]*)\)/g;
+const WRITE_REGEX = /`*\s*WRITE\(([^)]*)\)\s*`*([^`]*)`+/g;
 
 const CHAT_MODEL = 'gpt-3.5-turbo';
 
@@ -95,8 +112,7 @@ passport.deserializeUser((user, done) => {
 
 // Setup static serving
 app.use(serveAuthenticatedStatic('static'));
-//app.use(express.static('static'));
-app.use(express.static(GENERATE_FOLDER));
+//app.use(express.static(GENERATE_FOLDER));
 
 
 function createInferId() {
@@ -142,14 +158,15 @@ async function transcribeAudioFile(filePath) {
                 },
             }
         );
-        // Save logs to disk
-        fs.writeFileSync(
-            path.join(__dirname, LOGS_FOLDER, `transcribe-${createInferId()}.json`),
+        await uploadFileToS3(
+            'whisper-gpt-logs',
+            `transcribe-${createInferId()}.json`,
             JSON.stringify({
                 type: 'transcribe',
                 input: filePath,
                 response: response.data,
-            }, null, 4));
+            }, null, 4),
+            'application/json');
 
         console.log(`Transcribed ${audioDuration}s of audio: ${response.data.text} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset})`);
         return response.data.text;
@@ -159,49 +176,145 @@ async function transcribeAudioFile(filePath) {
     }
 }
 
-async function generateImageWithDallE(description) {
-  try {
-    // Use the DALL-E API to generate an image from the description
-    const generateInput = {
-        prompt: description,
-        n: 1,
-        size: IMAGE_SIZE,
-    };
-    const generateResponse = await openai.createImage(generateInput);
+async function generateImageWithStableDiffusion(description) {
+    try {
+        const generateInput = {
+            version: STABLE_DIFFUSION_MODEL,
+            input: {
+                prompt: description,
+            },
+        };
 
-    if (generateResponse
-        && generateResponse.data
-        && generateResponse.data.data
-        && generateResponse.data.data[0]) {
-      const imageUrl = generateResponse.data.data[0].url;
-      const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+        const initiateResponse = await axios.post(
+            'https://api.replicate.com/v1/predictions',
+            generateInput,
+            {
+                headers: {
+                    'Authorization': `Token ${REPLICATE_API_TOKEN}`,
+                    'Content-Type': 'application/json',
+                },
+            }
+        );
 
-      // Save the image to disk
-      const inferId = createInferId();
-      const imageFile = `${inferId}.png`;
-      const cost = IMAGE_PRICING[IMAGE_SIZE];
-      fs.writeFileSync(
-          path.join(__dirname, GENERATE_FOLDER, imageFile),
-          Buffer.from(imageResponse.data), 'binary');
-      // Save logs to disk
-      fs.writeFileSync(
-          path.join(__dirname, LOGS_FOLDER, `image-${inferId}.json`),
-          JSON.stringify({
-              type: 'createImage',
-              input: generateInput,
-              response: generateResponse.data,
-              cost,
-              imageFile,
-          }, null, 4));
+        const predictionId = initiateResponse.data.id;
 
-      console.log(`Image generated to ${imageFile} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(3)}${COLOR.reset})`);
-      return imageFile;
-    } else {
-      console.log('No image URL found in the response');
+        let predictionStatus = 'pending';
+        let imageUrl;
+        let statusResponse;
+
+        while (predictionStatus !== 'succeeded') {
+            await new Promise(resolve => setTimeout(resolve, REPLICATE_POLL_TIME));
+
+            statusResponse = await axios.get(
+                `https://api.replicate.com/v1/predictions/${predictionId}`,
+                {
+                    headers: {
+                        'Authorization': `Token ${REPLICATE_API_TOKEN}`,
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
+
+            predictionStatus = statusResponse.data.status;
+
+            if (predictionStatus === 'failed') {
+                throw new Error('Prediction failed');
+            }
+
+            if (predictionStatus === 'succeeded') {
+                imageUrl = statusResponse.data.output[0];
+            }
+        }
+
+        const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+
+        // Save the image to disk
+        const inferId = createInferId();
+        const imageFile = `${inferId}.png`;
+
+        /*
+        fs.writeFileSync(
+            path.join(__dirname, GENERATE_FOLDER, imageFile),
+            Buffer.from(imageResponse.data), 'binary'
+        );
+        */
+        await uploadFileToS3(
+            'whisper-gpt-generated',
+            imageFile,
+            Buffer.from(imageResponse.data),
+            'image/png');
+        await uploadFileToS3(
+            'whisper-gpt-logs',
+            `image-${inferId}.json`,
+            JSON.stringify({
+                type: 'createImage',
+                model: 'stableDiffusion',
+                input: generateInput,
+                response: statusResponse.data,
+                imageFile,
+            }, null, 4),
+            'application/json');
+
+        console.log(`Image generated to ${imageFile}`);
+        return `https://whisper-gpt-generated.s3.amazonaws.com/${imageFile}`;
+        // return imageFile;
+    } catch (error) {
+        console.error('Error generating image with Stable Diffusion:', error.message);
     }
-  } catch (error) {
-    console.error('Error generating image with DALL-E:', error.message);
-  }
+}
+
+async function generateImageWithDallE(description) {
+    try {
+        const generateInput = {
+            prompt: description,
+            n: 1,
+            size: IMAGE_SIZE,
+        };
+        const generateResponse = await openai.createImage(generateInput);
+
+        if (generateResponse
+            && generateResponse.data
+            && generateResponse.data.data
+            && generateResponse.data.data[0]) {
+            const imageUrl = generateResponse.data.data[0].url;
+            const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+
+            const inferId = createInferId();
+            const imageFile = `${inferId}.png`;
+            const cost = IMAGE_PRICING[IMAGE_SIZE];
+
+            /*
+            fs.writeFileSync(
+                path.join(__dirname, GENERATE_FOLDER, imageFile),
+                Buffer.from(imageResponse.data), 'binary');
+            */
+            await uploadFileToS3(
+                'whisper-gpt-generated',
+                imageFile,
+                Buffer.from(imageResponse.data),
+                'image/png');
+            await uploadFileToS3(
+                'whisper-gpt-logs',
+                `image-${inferId}.json`,
+                JSON.stringify({
+                    type: 'createImage',
+                    model: 'DALL-E',
+                    input: generateInput,
+                    response: generateResponse.data,
+                    cost,
+                    imageFile,
+                }, null, 4),
+                'application/json');
+
+            console.log(`Image generated to ${imageFile} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(3)}${COLOR.reset})`);
+            return `https://whisper-gpt-generated.s3.amazonaws.com/${imageFile}`;
+            // return imageFile;
+        } else {
+            console.log('No image URL found in the response');
+        }
+    } catch (error) {
+        console.error('Error generating image with DALL-E:', error.message);
+    }
 }
 
 function getAudioDuration(filePath) {
@@ -242,15 +355,16 @@ async function generateChatCompletion(messages) {
     const response = await openai.createChatCompletion(input);
     const cost = CHAT_PRICING[CHAT_MODEL] * response.data.usage.total_tokens;
 
-    // Save logs to disk
-    fs.writeFileSync(
-        path.join(__dirname, LOGS_FOLDER, `chat-${createInferId()}.json`),
+    await uploadFileToS3(
+        'whisper-gpt-logs',
+        `chat-${createInferId()}.json`,
         JSON.stringify({
             type: 'createChatCompletion',
             input,
             response: response.data,
             cost,
-        }, null, 4));
+        }, null, 4),
+        'application/json');
 
     const reply = response.data.choices[0].message.content;
     console.log(`Assistant reply: ${reply} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset})`);
@@ -274,6 +388,24 @@ function serveAuthenticatedStatic(staticPath) {
   }
 }
 
+function uploadFileToS3(bucketName, key, data, contentType) {
+    const params = {
+        Bucket: bucketName,
+        Key: key,
+        Body: data,
+        ContentType: contentType,
+    };
+
+    return new Promise((resolve, reject) => {
+        s3.upload(params, (err, data) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(data);
+            }
+        });
+    });
+}
 
 
 app.post('/transcribe', upload.single('audio'), async (req, res) => {
@@ -308,16 +440,36 @@ app.post('/chat', async (req, res) => {
         // Detect language to assist speech synthesis on frontend
         const language = await detectLanguage(reply);
 
-        // Use DALL-E to generate requested images
-        const imageMatches = new Set(Array.from(reply.matchAll(IMAGE_REGEX)));
-        let replyWithImages = reply;
-        for (let [pattern, description] of imageMatches) {
-          const imageFile = await generateImageWithDallE(description);
-          replyWithImages = replyWithImages.replaceAll(pattern, `![${description}](${imageFile})`);
+        let renderedReply = reply;
+
+        for (let [pattern, description] of Array.from(reply.matchAll(IMAGE_REGEX))) {
+          const imageFile = await generateImageWithStableDiffusion(description);
+          //const imageFile = await generateImageWithDallE(description);
+          renderedReply = renderedReply.replace(pattern, `![${description}](${imageFile})`);
         }
 
+        // Apply code assistant hooks
+        /*
+        for (let [_, unsafePath] of Array.from(reply.matchAll(LS_REGEX))) {
+          const command = `ls ${path.join(WORKSPACE_FOLDER, sanitize(unsafePath))}`;
+          const output = child_process.execSync(command);
+          renderedReply += `\n\n    $> ${command}\n\n    ${output}`;
+        }
+        for (let [_, unsafePath] of Array.from(reply.matchAll(CAT_REGEX))) {
+          const command = `cat ${path.join(WORKSPACE_FOLDER, sanitize(unsafePath))}`;
+          const output = child_process.execSync(command);
+          renderedReply += `\n\n    $> ${command}\n\n    ${output}`;
+        }
+        for (let [_, unsafePath, contents] of Array.from(reply.matchAll(WRITE_REGEX))) {
+          fs.writeFileSync(
+              path.join(__dirname, WORKSPACE_FOLDER, sanitize(unsafePath)),
+              contents);
+          renderedReply += `\n\n    ## wrote data to ${sanitize(unsafePath)}!`;
+        }
+        */
+
         // Render markdown to HTML for display in the browser
-        const html = markdown.render(replyWithImages);
+        const html = markdown.render(renderedReply);
 
         res.type('json');
         res.status(200).send(JSON.stringify({ text: reply, language, html }));

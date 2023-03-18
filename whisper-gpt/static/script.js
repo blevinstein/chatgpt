@@ -20,6 +20,8 @@ sendTextButton.addEventListener('click', sendTextMessage);
 const textInput = document.getElementById('textInput');
 textInput.addEventListener('keypress', async (event) => {
     if (event.key === 'Enter') {
+        event.preventDefault();
+        window.speechSynthesis.cancel();
         await sendTextMessage();
     }
 });
@@ -174,7 +176,11 @@ function escapeHTML(unsafeText) {
 }
 
 async function sendTextMessage() {
-    displayMessage('user', textInput.value, createListItemWithSpinner(), escapeHTML(textInput.value));
+    const message = textInput.value.trim();
+    if (message.length > 0) {
+      displayMessage('user', message, createListItemWithSpinner(), escapeHTML(textInput.value));
+      textInput.value = '';
+    }
     await requestChatResponse();
 }
 
@@ -216,6 +222,19 @@ function resetRecordButton() {
 //const SYSTEM_PROMPT = 'You are a helpful assistant. Your messages are being conveyed by audio, so keep your responses concise, and elaborate only when requested by the user.';
 //const SYSTEM_PROMPT = 'You are a helpful assistant. At times, a user may explicitly request a response with an image. To send one, include `IMAGE(Description of the image to send)` in your response. Make your descriptions as detailed as you can, but not longer than 200 words. Do NOT send any raw URLs like `IMAGE(https://some-website.com/kitty.png).`';
 const SYSTEM_PROMPT = 'You are a helpful assistant. At times, a user may explicitly request a response with an image. To send one, include `IMAGE(Description of the image to send)` in your response. Make your descriptions as detailed as you can, but not longer than 200 words. Do NOT send any raw URLs like `IMAGE(https://some-website.com/kitty.png). Your messages are being conveyed by audio, so keep your responses concise, and elaborate only when requested by the user.`';
+
+//const SYSTEM_PROMPT = 'You are a helpful language teacher. The user is a student who is learning Spanish. Talk to them in Spanish, using beginner vocabulary and grammar, and allow them to respond, one sentence at a time. Provide feedback to the student when they make mistakes.';
+
+/*
+const SYSTEM_PROMPT = `You are a helpful coding assistant. The user will ask you for help with some code, which is organized in a folder structure in the current workpace directory. To assist the user, the assistant can inspect the code by responding with any of the following:
+LS(directory)   # Lists the contents of a directory, e.g. LS(.) or LS(path/to/folder)
+CAT(file)       # Prints the contents a file, e.g. CAT(path/to/file)
+and the assistant may change the code directly by responding with:
+WRITE(file)\`\`\`
+file contents go here
+\`\`\`
+Your messages are being conveyed by audio, so keep your responses concise, and elaborate only when requested by the user.`;
+*/
 
 displayMessage('system', SYSTEM_PROMPT, createListItemWithSpinner());
 

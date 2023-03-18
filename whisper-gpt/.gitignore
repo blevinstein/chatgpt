@@ -2,3 +2,4 @@ uploads/
 generated/
 logs/
 .env
+workspace/
