@@ -239,7 +239,8 @@ async function fetchPrompts() {
             if (selectedPrompts.includes(prompt)) {
                 button.classList.add('selected');
             }
-            button.addEventListener('click', handlePromptButtonClick);
+            button.addEventListener('mouseup', togglePromptButton);
+            button.addEventListener('touchend', togglePromptButton);
             promptButtonContainer.appendChild(button);
         });
         await Promise.all(selectedPrompts.map(p => getPromptData(p)));
@@ -267,7 +268,8 @@ async function getPromptData(promptName) {
     }
 }
 
-async function handlePromptButtonClick(event) {
+async function togglePromptButton(event) {
+    event.preventDefault();
     const button = event.target;
     const isSelected = button.classList.toggle('selected');
     const promptName = button.dataset.value;
