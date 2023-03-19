@@ -105,6 +105,13 @@
             margin: 0 auto;
         }
 
+        #systemInput {
+            width: 100%;
+            resize: vertical;
+            padding: 5px;
+            margin: 10px 0;
+        }
+
         #textInput {
             flex-grow: 1;
             height: 50px;
@@ -199,7 +206,9 @@
         <div id="promptButtonContainer"></div>
         <ul id="messageList">
             <li>
-                <div id="systemPrompt"></div>
+                <b>system:</b>
+                <span id="systemPrompt"></span>
+                <textarea id="systemInput" rows="2" placeholder="(additional system instructions)"></textarea>
             </li>
         </ul>
         <div id="controlBar">
@@ -208,7 +217,7 @@
                 <button id="stopAudioButton"><i class="fas fa-stop"></i></button>
             </div>
             <div id="textControls">
-                <textarea id="textInput" rows="2" placeholder="Type your message"></textarea>
+                <textarea id="textInput" rows="2" placeholder="user:"></textarea>
                 <button id="sendTextButton"><i class="fas fa-comment"></i></button>
             </div>
         </div>

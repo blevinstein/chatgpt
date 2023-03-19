@@ -20,7 +20,7 @@ sendTextButton.addEventListener('click', sendTextMessage);
 
 const textInput = document.getElementById('textInput');
 textInput.addEventListener('keypress', async (event) => {
-    if (event.key === 'Enter') {
+    if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
         window.speechSynthesis.cancel();
         await sendTextMessage();
@@ -193,11 +193,13 @@ async function requestChatResponse() {
     const chatListItem = createListItemWithSpinner();
 
     try {
+        const customPrompt = document.getElementById('systemInput').value;
+        const fullPrompt = systemPrompt + '\n\n'+ customPrompt;
         const chatResponse = await fetch('/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                messages: [{ role: 'system', content: systemPrompt}].concat(messages),
+                messages: [{ role: 'system', content: fullPrompt}].concat(messages),
             }),
         });
 
@@ -248,7 +250,6 @@ async function fetchPrompts() {
 }
 
 function updateSystemPrompt() {
-    console.log(`Update prompts: ${Array.from(selectedPrompts)}`);
     systemPrompt =
         selectedPrompts.map(p => promptCache[p].text).join('\n\n');
     document.getElementById('systemPrompt').innerHTML =
