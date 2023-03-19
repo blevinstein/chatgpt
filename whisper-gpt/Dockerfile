@@ -16,7 +16,7 @@ RUN apt install -y ffmpeg
 COPY prompt prompt
 COPY static static
 COPY views views
-COPY *.js ./
+COPY src src
 
 # TODO: Remove .env from docker image, use secrets
 COPY .env ./
@@ -24,5 +24,5 @@ COPY .env ./
 RUN TZ=UTC date > build-time.txt
 
 # Start the app
-CMD ["npm", "start"]
+CMD ["yarn", "start"]
 
