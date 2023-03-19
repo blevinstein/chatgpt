@@ -1,3 +1,4 @@
+import cookieSession from 'cookie-session';
 import express from 'express';
 import ffmpeg from 'fluent-ffmpeg';
 import fs from 'fs';
@@ -8,7 +9,6 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import path from 'path';
 import sanitize from 'sanitize-filename';
-import session from 'express-session';
 
 import { COLOR, createInferId } from './common.js';
 import { transcribeAudioFile, generateChatCompletion, generateInlineImages } from './integrations.js';
@@ -45,7 +45,7 @@ function getExtensionByMimeType(mimeType) {
 }
 
 function getUser(req) {
-    return req.user.emails[0].value;
+    return req.session.user.emails[0].value;
 }
 
 async function detectLanguage(text) {
@@ -72,7 +72,7 @@ function remuxAudio(input, output) {
 }
 
 function ensureAuthenticated(req, res, next) {
-    if (req.isAuthenticated()) {
+    if (req.session && req.session.user) {
         return next();
     }
     res.sendFile('views/forbidden.html', { root: process.cwd() });
@@ -84,10 +84,9 @@ const app = express();
 app.use(express.json());
 
 // Initialize Passport and enable session support
-app.use(session({
-  secret: process.env.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
+app.use(cookieSession({
+    name: 'WhisperGPT-session',
+    secret: process.env.SESSION_SECRET,
 }));
 app.use(passport.initialize());
 app.use(passport.session());
@@ -118,8 +117,19 @@ app.use(express.static('static'));
 app.get('/login',
     passport.authenticate('google', { scope: ['profile', 'email'] }));
 
-app.get('/auth/google/callback',
-    passport.authenticate('google', { successRedirect: '/', failureRedirect: '/login' }));
+app.get('/auth/google/callback', (req, res, next) => {
+    passport.authenticate('google', (err, user, info) => {
+        if (err) {
+            return next(err);
+        }
+        if (!user) {
+            return res.redirect('/login');
+        }
+        req.session.user = user;
+        return res.redirect('/');
+    })(req, res, next);
+});
+
 
 app.get('/health-check', (req, res) => res.status(200).send('OK'));
 
@@ -218,10 +228,8 @@ app.get('/', function (req, res) {
 });
 
 app.get('/logout', function (req, res) {
-    req.logout((error) => {
-        if (error) return next(error);
-        res.redirect('/');
-    });
+    req.session.user = null;
+    res.redirect('/');
 });
 
 app.get('/prompts', async (req, res) => {
