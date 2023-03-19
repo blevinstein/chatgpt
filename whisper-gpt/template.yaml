@@ -469,3 +469,34 @@ Resources:
             ]
           }'
         - TargetGroupName: !Select [5, !Split [":", !Ref TargetGroup]]
+
+  UnhealthyHostsSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: Unhealthy Hosts Topic
+      TopicName: !Sub whisper-gpt-${EnvironmentName}-UnhealthyHostsTopic
+
+  UnhealthyHostsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub whisper-gpt-${EnvironmentName}-UnhealthyHostsAlarm
+      AlarmDescription: Alarm when the number of healthy hosts is too low
+      Namespace: AWS/ApplicationELB
+      MetricName: HealthyHostCount
+      Dimensions:
+        - Name: TargetGroup
+          Value: !Select [5, !Split [":", !Ref TargetGroup]]
+        - Name: LoadBalancer
+          Value: app/avaxbridgeapes-elb/ce9e65b759c5db65
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1.0
+      ComparisonOperator: LessThanThreshold
+      AlarmActions:
+        - !Ref UnhealthyHostsSNSTopic
+      OKActions:
+        - !Ref UnhealthyHostsSNSTopic
+      TreatMissingData: breaching
+
