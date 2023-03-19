@@ -12,7 +12,8 @@ RUN yarn install
 RUN apt update
 RUN apt install -y ffmpeg
 
-# Copy the rest of the source code
+# Copy source code and assets
+COPY prompt prompt
 COPY static static
 COPY views views
 COPY server.js ./
