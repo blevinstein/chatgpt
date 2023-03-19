@@ -32,6 +32,8 @@ const REPLICATE_POLL_TIME = 500;
 const UPLOAD_FOLDER = 'uploads';
 //const GENERATE_FOLDER = 'generated';
 const WORKSPACE_FOLDER = 'workspace';
+const PROMPT_FOLDER = 'prompt';
+
 const upload = multer({ dest: UPLOAD_FOLDER + '/' });
 
 AWS.config.update({
@@ -419,7 +421,7 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
         const oldPath = path.join(__dirname, req.file.path);
         const newPath = path.join(__dirname, UPLOAD_FOLDER, createInferId() + fileExtension);
         await remuxAudio(oldPath, newPath);
-        fs.unlinkSync(oldPath);
+        await fs.promises.unlink(oldPath);
 
         const transcribedText = await transcribeAudioFile(newPath);
         if (transcribedText) {
@@ -495,6 +497,26 @@ app.get('/logout', function (req, res) {
         if (error) return next(error);
         res.redirect('/');
     });
+});
+
+app.get('/prompts', async (req, res) => {
+    const files = await fs.promises.readdir(PROMPT_FOLDER);
+    const names = files.filter(f => f.endsWith('.txt')).map(f => f.slice(0, -4));
+    res.type('json');
+    res.status(200).send(JSON.stringify(names));
+});
+
+app.get('/prompt/:name', async (req, res) => {
+    const filePath = path.join(__dirname, PROMPT_FOLDER, sanitize(req.params.name) + '.txt');
+    try {
+        const promptData = await fs.promises.readFile(filePath, { encoding: 'utf-8' });
+        const html = markdown.render(promptData);
+        res.type('json');
+        res.status(200).send(JSON.stringify({ text: promptData, html }));
+    } catch (error) {
+        console.error(`Prompt not found: ${req.params.name}`, error);
+        res.status(400).send('Prompt not found');
+    }
 });
 
 const PORT = process.env.PORT || 3000;
