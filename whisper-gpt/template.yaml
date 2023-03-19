@@ -143,6 +143,7 @@ Resources:
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
+      Name: !Sub whisper-gpt-target-${EnvironmentName}
       Port: 3000
       Protocol: HTTP
       TargetType: ip
