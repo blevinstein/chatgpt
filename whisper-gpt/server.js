@@ -248,6 +248,7 @@ async function generateImageWithStableDiffusion(description, options, user) {
                 responseTime,
                 imageUrl,
                 user,
+                options,
             }, null, 4),
             'application/json');
 
@@ -300,6 +301,7 @@ async function generateImageWithDallE(description, options, user) {
                     imageUrl,
                     responseTime,
                     user,
+                    options,
                 }, null, 4),
                 'application/json');
 
@@ -360,6 +362,10 @@ async function generateChatCompletion(messages, options = {}, user) {
     const cost = OPENAI_CHAT_PRICE[model] * response.data.usage.total_tokens;
     const inferId = createInferId();
 
+    const reply = response.data.choices[0].message.content;
+    console.log(`Assistant reply: ${reply} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset}) [${inferId}] (${(responseTime/1000).toFixed(2)}s)`);
+
+    const [ renderedReply, generatedImages ] = await generateInlineImages(reply, options, user);
     await uploadFileToS3(
         'whisper-gpt-logs',
         `chat-${inferId}.json`,
@@ -370,12 +376,12 @@ async function generateChatCompletion(messages, options = {}, user) {
             cost,
             responseTime,
             user,
+            generatedImages,
+            options,
         }, null, 4),
         'application/json');
 
-    const reply = response.data.choices[0].message.content;
-    console.log(`Assistant reply: ${reply} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset}) [${inferId}] (${(responseTime/1000).toFixed(2)}s)`);
-    return reply;
+    return [ reply, renderedReply ];
 }
 
 function ensureAuthenticated(req, res, next) {
@@ -416,10 +422,12 @@ async function generateInlineImages(message, options = {}, user) {
             .then((imageFile) => [pattern, description, imageFile]));
     }
     let updatedMessage = message;
+    const generatedImages = [];
     for (let [pattern, description, imageFile] of await Promise.all(imagePromises)) {
         updatedMessage = updatedMessage.replace(pattern, `![${description}](${imageFile})`);
+        generatedImages.push({pattern, imageFile});
     }
-    return updatedMessage;
+    return [ updatedMessage, generatedImages ]
 }
 
 const app = express();
@@ -509,7 +517,7 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
 // This is used for text
 app.post('/renderMessage', async (req, res) => {
     const { message, options = {} } = req.body;
-    const renderedMessage = await generateInlineImages(message, options, getUser(req));
+    const [ renderedMessage, generatedImages ] = await generateInlineImages(message, options, getUser(req));
     // Render markdown to HTML for display in the browser
     const html = markdown.render(renderedMessage);
     res.type('json');
@@ -521,12 +529,10 @@ app.post('/chat', async (req, res) => {
     try {
         const { messages, options = {} } = req.body;
 
-        const reply = await generateChatCompletion(messages, options, getUser(req));
+        const [ reply, renderedReply ] = await generateChatCompletion(messages, options, getUser(req));
 
         // Detect language to assist speech synthesis on frontend
         const language = await detectLanguage(reply);
-
-        const renderedReply = await generateInlineImages(reply, options, getUser(req));
 
         // Apply code assistant hooks
         /*
