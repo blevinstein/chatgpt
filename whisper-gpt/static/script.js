@@ -170,7 +170,8 @@ async function stopRecordingAndUpload() {
             return;
         }
 
-        await requestChatResponse();
+        // TODO: Re-enable automatic chat responses
+        // await requestChatResponse();
     };
     mediaRecorder.stop();
     mediaStream.getTracks().forEach(t => t.stop());
@@ -185,11 +186,32 @@ function escapeHTML(unsafeText) {
 
 async function sendTextMessage() {
     const message = textInput.value.trim();
+    textInput.value = '';
     if (message.length > 0) {
-      displayMessage('user', message, createListItemWithSpinner(), escapeHTML(textInput.value));
-      textInput.value = '';
+        try {
+            const listItem = createListItemWithSpinner();
+
+            const response = await fetch('/renderMessage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message }),
+            });
+
+            if (response.ok) {
+                const { html } = await response.json();
+                displayMessage('user', message, listItem, html);
+            } else {
+                console.error('Error rendering message:', response.statusText);
+                listItem.remove();
+            }
+        } catch (error) {
+            console.error('Error rendering message:', error);
+            listItem.remove();
+        }
+    } else {
+        // TODO: Re-enable automatic chat responses
+        await requestChatResponse();
     }
-    await requestChatResponse();
 }
 
 async function requestChatResponse() {
@@ -287,6 +309,9 @@ async function togglePromptButton(event) {
 }
 
 async function fetchBuildTime() {
+    // Build time is not available when running locally
+    if (window.location.hostname == 'localhost') return;
+
     try {
         const response = await fetch('/build-time');
 
