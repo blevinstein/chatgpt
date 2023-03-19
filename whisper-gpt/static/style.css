@@ -1,0 +1,224 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    padding: 10px;
+}
+
+h1 {
+    padding: 10px;
+    color: #f1f1f1;
+    font-size: 4rem;
+    -webkit-text-stroke: 2px #1E88E5;
+}
+
+button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    user-select: none;
+    cursor: pointer;
+    border: none;
+    border-radius: 4px;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-left-color: #000;
+    border-radius: 50%;
+    animation: spinner 1s linear infinite;
+}
+
+@keyframes spinner {
+    to { transform: rotate(360deg); }
+}
+
+#recordButton,
+#sendTextButton {
+    background-color: #2196F3;
+}
+
+#stopAudioButton {
+    background-color: #FF9800;
+}
+
+#recordButton,
+#stopAudioButton,
+#sendTextButton {
+    width: 100px;
+    height: 50px;
+    line-height: 50px;
+    color: white;
+    margin: 5px;
+    font-size: 1.5rem;
+}
+
+#recordButton.recording {
+    background-color: #FF9800;
+    color: #fff;
+}
+
+#recordButton.recording i {
+    animation: pulse 1s infinite;
+}
+
+#recordButton:hover:not(.recording),
+#sendTextButton:hover {
+    background-color: #1E88E5;
+}
+
+#stopAudioButton:hover {
+    background-color: #F57C00;
+}
+
+#messageList {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+#messageList li {
+    padding: 10px;
+    border-radius: 4px;
+}
+
+#messageList li:nth-child(odd) {
+    background-color: #f1f1f1;
+}
+
+#messageList li:nth-child(even) {
+    background-color: #e0e0e0;
+}
+
+#messageList img {
+    max-width: 75%;
+}
+
+#messageContainer {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+#systemInput {
+    width: 100%;
+    resize: vertical;
+    padding: 5px;
+    margin-top: 10px;
+}
+
+#textInput {
+    flex-grow: 1;
+    height: 50px;
+    resize: vertical;
+    margin: 5px;
+    padding: 5px;
+}
+
+#logout {
+    color: #1E88E5;
+    display: inline-block;
+    text-decoration: none;
+    padding: 5px 10px;
+}
+
+#logout:hover {
+    text-decoration: underline;
+}
+
+#headerBar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+}
+
+#controlBar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 10px;
+    background-color: #F1F1F1;
+}
+
+#micControls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#textControls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-grow: 1;
+}
+
+@media (max-width: 600px) {
+    #controlBar {
+        flex-direction: column;
+    }
+
+    h1 {
+        padding: 10px;
+        color: #1E88E5;
+        font-size: 2rem;
+        -webkit-text-stroke: 0;
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+#promptButtonContainer {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.promptButton {
+    min-width: 100px;
+    padding: 0 10px;
+    height: 50px;
+    background-color: #F1F1F1;
+    color: #000;
+    line-height: 50px;
+    margin: 5px;
+    font-size: 1rem;
+}
+
+.promptButton:hover {
+    background-color: #1E88E5;
+    color: #fff;
+}
+
+.promptButton.selected {
+    background-color: #2196F3;
+    color: #fff;
+}
+
+.promptButton.selected:hover {
+    background-color: #F1F1F1;
+    color: #000;
+}
+
+footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.75rem;
+    margin: 10px;
+}

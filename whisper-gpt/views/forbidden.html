@@ -4,20 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Whisper ChatGPT</title>
+    <link rel="stylesheet" href="style.css">
     <style>
         * {
             box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
 
-        #container {
+        body {
+            font-family: Arial, sans-serif;
+            padding: 10px;
+        }
+
+        #forbiddenContainer {
             display: flex;
             justify-content: center;
             align-items: center;
         }
-  </style>
+    </style>
 </head>
 <body>
-    <div id="container">
+    <div id="forbiddenContainer">
         <span>
             You are not authorized. Please <a href="/login">Login</a> to access the app.
         </span>
