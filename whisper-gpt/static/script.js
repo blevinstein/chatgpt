@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 const promptCache = {};
-let selectedPrompts = ['dan', 'image', 'audio'];
+let selectedPrompts = ['dan', 'image'];
 
 async function initMediaRecorder() {
     mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });

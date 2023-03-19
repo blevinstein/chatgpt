@@ -135,7 +135,6 @@ passport.deserializeUser((user, done) => {
 // Setup static serving
 app.use(serveAuthenticatedStatic('static'));
 
-
 function createInferId() {
     return crypto.randomBytes(6).toString('hex');
 }
@@ -154,13 +153,23 @@ function getExtensionByMimeType(mimeType) {
     return extensions[mimeType] || '';
 }
 
+// Hash with a salt to anonymize data
+const SALT = 'Whisper GPT salt';
+function hashValue(value) {
+    return crypto.createHash('sha1').update(SALT).update(value).digest('hex');
+}
+
+function getUser(req) {
+    return req.user.emails[0].value;
+}
+
 async function detectLanguage(text) {
   const languages = detect(text);
   console.log(`Inferred languages: ${JSON.stringify(languages)}`);
   return languages[0].lang;
 }
 
-async function transcribeAudioFile(filePath) {
+async function transcribeAudioFile(filePath, user) {
     const formData = new FormData();
     formData.append('file', fs.createReadStream(filePath));
     formData.append('model', 'whisper-1');
@@ -188,6 +197,7 @@ async function transcribeAudioFile(filePath) {
                 input: filePath,
                 response: response.data,
                 responseTime,
+                user,
             }, null, 4),
             'application/json');
 
@@ -199,7 +209,7 @@ async function transcribeAudioFile(filePath) {
     }
 }
 
-async function generateImageWithStableDiffusion(description, options) {
+async function generateImageWithStableDiffusion(description, options, user) {
     try {
         const generateInput = {
             version: REPLICATE_MODELS[options.imageModel || 'stableDiffusion_21_fast'],
@@ -276,6 +286,7 @@ async function generateImageWithStableDiffusion(description, options) {
                 predictTime: statusResponse.data.metrics.predict_time,
                 responseTime,
                 imageFile,
+                user,
             }, null, 4),
             'application/json');
 
@@ -287,13 +298,14 @@ async function generateImageWithStableDiffusion(description, options) {
     }
 }
 
-async function generateImageWithDallE(description, options) {
+async function generateImageWithDallE(description, options, user) {
     try {
         const imageSize = options.imageSize || OPENAI_IMAGE_SIZE;
         const generateInput = {
             prompt: description,
             n: 1,
             size: imageSize,
+            user: hashValue(user),
         };
         const startTime = performance.now();
         const generateResponse = await openai.createImage(generateInput);
@@ -326,6 +338,7 @@ async function generateImageWithDallE(description, options) {
                     cost,
                     imageFile,
                     responseTime,
+                    user,
                 }, null, 4),
                 'application/json');
 
@@ -376,11 +389,12 @@ async function measureTime(operation) {
     return [performance.now() - startTime, returnValue];
 }
 
-async function generateChatCompletion(messages, options = {}) {
+async function generateChatCompletion(messages, options = {}, user) {
     const model = options.chatModel || CHAT_MODEL;
     const input = {
         model,
         messages,
+        user: hashValue(user),
     };
     const [responseTime, response] = await measureTime(() => openai.createChatCompletion(input));
     const cost = OPENAI_CHAT_PRICE[model] * response.data.usage.total_tokens;
@@ -395,6 +409,7 @@ async function generateChatCompletion(messages, options = {}) {
             response: response.data,
             cost,
             responseTime,
+            user,
         }, null, 4),
         'application/json');
 
@@ -440,14 +455,14 @@ function uploadFileToS3(bucketName, key, data, contentType) {
 }
 
 // TODO: Add a config option or argument to switch between DALL-E and Stable Diffusion
-async function generateInlineImages(message, options = {}) {
+async function generateInlineImages(message, options = {}, user) {
     const imagePromises = [];
     const generateImage = options.imageModel == 'dallE'
         ? generateImageWithDallE
         : generateImageWithStableDiffusion;
 
     for (let [pattern, description] of Array.from(message.matchAll(IMAGE_REGEX))) {
-        imagePromises.push(generateImage(description, options)
+        imagePromises.push(generateImage(description, options, user)
             .then((imageFile) => [pattern, description, imageFile]));
     }
     let updatedMessage = message;
@@ -477,7 +492,7 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
         }
 
         try {
-            const transcribedText = await transcribeAudioFile(newPath);
+            const transcribedText = await transcribeAudioFile(newPath, getUser(req));
             res.status(200).send(transcribedText);
         } catch(error) {
             console.error('Transcription failed', error);
@@ -494,7 +509,7 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
 // This is used for text
 app.post('/renderMessage', async (req, res) => {
     const { message, options = {} } = req.body;
-    const renderedMessage = await generateInlineImages(message, options);
+    const renderedMessage = await generateInlineImages(message, options, getUser(req));
     // Render markdown to HTML for display in the browser
     const html = markdown.render(renderedMessage);
     res.type('json');
@@ -506,12 +521,12 @@ app.post('/chat', async (req, res) => {
     try {
         const { messages, options = {} } = req.body;
 
-        const reply = await generateChatCompletion(messages, options);
+        const reply = await generateChatCompletion(messages, options, getUser(req));
 
         // Detect language to assist speech synthesis on frontend
         const language = await detectLanguage(reply);
 
-        const renderedReply = await generateInlineImages(reply, options);
+        const renderedReply = await generateInlineImages(reply, options, getUser(req));
 
         // Apply code assistant hooks
         /*
