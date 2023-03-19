@@ -33,6 +33,22 @@ showOptions.addEventListener('click', (event) => {
     document.getElementById('optionsReveal').classList.toggle('hidden');
 });
 
+const optionsInput = document.getElementById('options');
+const OPTIONS_STORAGE_KEY = 'whispergpt-options';
+if (window.localStorage.getItem(OPTIONS_STORAGE_KEY)) {
+    optionsInput.value = window.localStorage.getItem(OPTIONS_STORAGE_KEY);
+}
+optionsInput.addEventListener('focusout', () => {
+    try {
+        const options = JSON.parse(document.getElementById('options').value.trim());
+        optionsInput.classList.remove('error');
+        window.localStorage.setItem(OPTIONS_STORAGE_KEY, JSON.stringify(options, null, 4));
+    } catch (error) {
+        optionsInput.classList.add('error');
+        console.error('Failed to parse options:', error);
+    }
+});
+
 document.addEventListener('DOMContentLoaded', async () => {
     await fetchPrompts();
     await fetchBuildTime();
@@ -192,9 +208,7 @@ function escapeHTML(unsafeText) {
 
 function getOptions() {
     try {
-        const options = JSON.parse(document.getElementById('options').value.trim());
-        console.log(options);
-        return options;
+        return JSON.parse(document.getElementById('options').value.trim());
     } catch (error) {
         console.error('Failed to parse options:', error);
         return {};

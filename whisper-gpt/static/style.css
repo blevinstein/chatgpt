@@ -249,6 +249,10 @@ footer {
     width: 100%;
 }
 
+#options.error {
+    background-color: #f59490;
+}
+
 #optionsReveal {
     align-items: center;
     display: flex;
