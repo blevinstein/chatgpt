@@ -8,12 +8,19 @@
         * {
             box-sizing: border-box;
         }
+
+        #container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
   </style>
 </head>
 <body>
-    <h1>Whisper ChatGPT</h1>
-    <div>
-        You are not authorized. Please <a href="/login">Login</a> to access the app.
+    <div id="container">
+        <span>
+            You are not authorized. Please <a href="/login">Login</a> to access the app.
+        </span>
     </div>
 </body>
 </html>
