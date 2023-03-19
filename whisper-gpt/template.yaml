@@ -193,7 +193,7 @@ Resources:
                     "ServiceName",
                     "whisper-gpt-service-${EnvironmentName}",
                     "ClusterName",
-                    "default"
+                    "whisper-gpt-cluster-${EnvironmentName}"
                   ],
                   [
                     "...",
@@ -234,7 +234,7 @@ Resources:
                     "ServiceName",
                     "whisper-gpt-service-${EnvironmentName}",
                     "ClusterName",
-                    "default"
+                    "whisper-gpt-cluster-${EnvironmentName}"
                   ],
                   [
                     "...",
