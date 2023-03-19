@@ -16,7 +16,7 @@ RUN apt install -y ffmpeg
 COPY prompt prompt
 COPY static static
 COPY views views
-COPY server.js ./
+COPY *.js ./
 
 # TODO: Remove .env from docker image, use secrets
 COPY .env ./
