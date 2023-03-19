@@ -176,295 +176,296 @@ Resources:
     Type: AWS::CloudWatch::Dashboard
     Properties:
       DashboardName: !Sub WhisperGpt-${EnvironmentName}
-      DashboardBody: !Sub |
-        {
-          "widgets": [
-            {
-              "height": 6,
-              "width": 6,
-              "y": 0,
-              "x": 6,
-              "type": "metric",
-              "properties": {
-                "metrics": [
-                  [
-                    "AWS/ECS",
-                    "CPUUtilization",
-                    "ServiceName",
-                    "whisper-gpt-service-${EnvironmentName}",
-                    "ClusterName",
-                    "whisper-gpt-cluster-${EnvironmentName}"
+      DashboardBody: !Sub
+        - '{
+            "widgets": [
+              {
+                "height": 6,
+                "width": 6,
+                "y": 0,
+                "x": 6,
+                "type": "metric",
+                "properties": {
+                  "metrics": [
+                    [
+                      "AWS/ECS",
+                      "CPUUtilization",
+                      "ServiceName",
+                      "whisper-gpt-service-${EnvironmentName}",
+                      "ClusterName",
+                      "whisper-gpt-cluster-${EnvironmentName}"
+                    ],
+                    [
+                      "...",
+                      {
+                        "stat": "Average"
+                      }
+                    ]
                   ],
-                  [
-                    "...",
-                    {
-                      "stat": "Average"
-                    }
-                  ]
-                ],
-                "legend": {
-                  "position": "bottom"
-                },
-              "region": "${AWS::Region}",
-                "liveData": false,
-                "title": "CPUUtilization",
-                "view": "timeSeries",
-                "stacked": false,
-                "period": 900,
-                "yAxis": {
-                  "left": {
-                    "min": 0,
-                    "showUnits": true
-                  }
-                },
-                "stat": "Maximum"
-              }
-            },
-            {
-              "height": 6,
-              "width": 6,
-              "y": 0,
-              "x": 12,
-              "type": "metric",
-              "properties": {
-                "metrics": [
-                  [
-                    "AWS/ECS",
-                    "MemoryUtilization",
-                    "ServiceName",
-                    "whisper-gpt-service-${EnvironmentName}",
-                    "ClusterName",
-                    "whisper-gpt-cluster-${EnvironmentName}"
-                  ],
-                  [
-                    "...",
-                    {
-                      "stat": "Average"
-                    }
-                  ]
-                ],
-                "legend": {
-                  "position": "bottom"
-                },
+                  "legend": {
+                    "position": "bottom"
+                  },
                 "region": "${AWS::Region}",
-                "liveData": false,
-                "title": "MemoryUtilization",
-                "view": "timeSeries",
-                "stacked": false,
-                "period": 900,
-                "yAxis": {
-                  "left": {
-                    "min": 0
-                  }
-                },
-                "stat": "Maximum"
-              }
-            },
-            {
-              "height": 6,
-              "width": 6,
-              "y": 6,
-              "x": 6,
-              "type": "metric",
-              "properties": {
-                "metrics": [
-                  [
-                    "AWS/ApplicationELB",
-                    "HealthyHostCount",
-                    "TargetGroup",
-                    "${TargetGroup.TargetGroupName}",
-                    "LoadBalancer",
-                    "app/avaxbridgeapes-elb/ce9e65b759c5db65",
-                    {
-                      "stat": "Maximum"
+                  "liveData": false,
+                  "title": "CPUUtilization",
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "period": 900,
+                  "yAxis": {
+                    "left": {
+                      "min": 0,
+                      "showUnits": true
                     }
+                  },
+                  "stat": "Maximum"
+                }
+              },
+              {
+                "height": 6,
+                "width": 6,
+                "y": 0,
+                "x": 12,
+                "type": "metric",
+                "properties": {
+                  "metrics": [
+                    [
+                      "AWS/ECS",
+                      "MemoryUtilization",
+                      "ServiceName",
+                      "whisper-gpt-service-${EnvironmentName}",
+                      "ClusterName",
+                      "whisper-gpt-cluster-${EnvironmentName}"
+                    ],
+                    [
+                      "...",
+                      {
+                        "stat": "Average"
+                      }
+                    ]
                   ],
-                  [
-                    "..."
-                  ]
-                ],
-                "view": "timeSeries",
-                "stacked": false,
-                "region": "${AWS::Region}",
-                "title": "Dev Healthy Hosts",
-                "period": 300,
-                "stat": "Minimum",
-                "yAxis": {
-                  "left": {
-                    "min": 0
+                  "legend": {
+                    "position": "bottom"
+                  },
+                  "region": "${AWS::Region}",
+                  "liveData": false,
+                  "title": "MemoryUtilization",
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "period": 900,
+                  "yAxis": {
+                    "left": {
+                      "min": 0
+                    }
+                  },
+                  "stat": "Maximum"
+                }
+              },
+              {
+                "height": 6,
+                "width": 6,
+                "y": 6,
+                "x": 6,
+                "type": "metric",
+                "properties": {
+                  "metrics": [
+                    [
+                      "AWS/ApplicationELB",
+                      "HealthyHostCount",
+                      "TargetGroup",
+                      "${TargetGroupName}",
+                      "LoadBalancer",
+                      "app/avaxbridgeapes-elb/ce9e65b759c5db65",
+                      {
+                        "stat": "Maximum"
+                      }
+                    ],
+                    [
+                      "..."
+                    ]
+                  ],
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "region": "${AWS::Region}",
+                  "title": "Dev Healthy Hosts",
+                  "period": 300,
+                  "stat": "Minimum",
+                  "yAxis": {
+                    "left": {
+                      "min": 0
+                    }
+                  }
+                }
+              },
+              {
+                "height": 6,
+                "width": 24,
+                "y": 18,
+                "x": 0,
+                "type": "log",
+                "properties": {
+                  "query": "SOURCE ''/ecs/whisper-gpt-${EnvironmentName}'' | fields @timestamp, @message\n| filter @message not like /.*\"GET \\/health-check HTTP\\/1.1\" 200 .*/\n| sort @timestamp desc\n| limit 1000",
+                  "region": "${AWS::Region}",
+                  "title": "Log group: /ecs/whisper-gpt-${EnvironmentName}",
+                  "view": "table"
+                }
+              },
+              {
+                "height": 6,
+                "width": 6,
+                "y": 6,
+                "x": 18,
+                "type": "metric",
+                "properties": {
+                  "metrics": [
+                    [
+                      "AWS/ApplicationELB",
+                      "HTTPCode_Target_5XX_Count",
+                      "TargetGroup",
+                      "${TargetGroupName}",
+                      "LoadBalancer",
+                      "app/avaxbridgeapes-elb/ce9e65b759c5db65"
+                    ],
+                    [
+                      ".",
+                      "HTTPCode_Target_4XX_Count",
+                      ".",
+                      ".",
+                      ".",
+                      "."
+                    ]
+                  ],
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "region": "${AWS::Region}",
+                  "title": "Error Responses",
+                  "period": 21600,
+                  "stat": "Sum",
+                  "yAxis": {
+                    "left": {
+                      "min": 0
+                    }
+                  }
+                }
+              },
+              {
+                "height": 6,
+                "width": 6,
+                "y": 0,
+                "x": 0,
+                "type": "metric",
+                "properties": {
+                  "metrics": [
+                    [
+                      "AWS/ApplicationELB",
+                      "TargetResponseTime",
+                      "TargetGroup",
+                      "${TargetGroupName}",
+                      "LoadBalancer",
+                      "app/avaxbridgeapes-elb/ce9e65b759c5db65"
+                    ],
+                    [
+                      "...",
+                      {
+                        "stat": "Average"
+                      }
+                    ],
+                    [
+                      "...",
+                      {
+                        "stat": "p95"
+                      }
+                    ]
+                  ],
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "region": "${AWS::Region}",
+                  "title": "Response Time",
+                  "period": 3600,
+                  "stat": "p99",
+                  "yAxis": {
+                    "right": {
+                      "showUnits": true
+                    }
+                  }
+                }
+              },
+              {
+                "height": 6,
+                "width": 6,
+                "y": 6,
+                "x": 0,
+                "type": "metric",
+                "properties": {
+                  "metrics": [
+                    [
+                      "AWS/ApplicationELB",
+                      "HealthyHostCount",
+                      "TargetGroup",
+                      "${TargetGroupName}",
+                      "LoadBalancer",
+                      "app/avaxbridgeapes-elb/ce9e65b759c5db65",
+                      {
+                        "stat": "Maximum"
+                      }
+                    ],
+                    [
+                      "..."
+                    ]
+                  ],
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "region": "${AWS::Region}",
+                  "title": "Healthy Hosts",
+                  "period": 300,
+                  "stat": "Minimum"
+                }
+              },
+              {
+                "height": 6,
+                "width": 6,
+                "y": 0,
+                "x": 18,
+                "type": "metric",
+                "properties": {
+                  "metrics": [
+                    [
+                      "AWS/ApplicationELB",
+                      "RequestCount",
+                      "TargetGroup",
+                      "${TargetGroupName}",
+                      "LoadBalancer",
+                      "app/avaxbridgeapes-elb/ce9e65b759c5db65"
+                    ],
+                    [
+                      ".",
+                      "HTTPCode_Target_4XX_Count",
+                      ".",
+                      ".",
+                      ".",
+                      "."
+                    ],
+                    [
+                      ".",
+                      "HTTPCode_Target_5XX_Count",
+                      ".",
+                      ".",
+                      ".",
+                      "."
+                    ]
+                  ],
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "region": "${AWS::Region}",
+                  "title": "RequestCount",
+                  "period": 900,
+                  "stat": "Sum",
+                  "yAxis": {
+                    "left": {
+                      "min": 0
+                    }
                   }
                 }
               }
-            },
-            {
-              "height": 6,
-              "width": 24,
-              "y": 18,
-              "x": 0,
-              "type": "log",
-              "properties": {
-                "query": "SOURCE '/ecs/whisper-gpt-${EnvironmentName}' | fields @timestamp, @message\n| filter @message not like /.*\"GET \\/health-check HTTP\\/1.1\" 200 .*/\n| sort @timestamp desc\n| limit 1000",
-                "region": "${AWS::Region}",
-                "title": "Log group: /ecs/whisper-gpt-${EnvironmentName}",
-                "view": "table"
-              }
-            },
-            {
-              "height": 6,
-              "width": 6,
-              "y": 6,
-              "x": 18,
-              "type": "metric",
-              "properties": {
-                "metrics": [
-                  [
-                    "AWS/ApplicationELB",
-                    "HTTPCode_Target_5XX_Count",
-                    "TargetGroup",
-                    "${TargetGroup.TargetGroupName}",
-                    "LoadBalancer",
-                    "app/avaxbridgeapes-elb/ce9e65b759c5db65"
-                  ],
-                  [
-                    ".",
-                    "HTTPCode_Target_4XX_Count",
-                    ".",
-                    ".",
-                    ".",
-                    "."
-                  ]
-                ],
-                "view": "timeSeries",
-                "stacked": false,
-                "region": "${AWS::Region}",
-                "title": "Error Responses",
-                "period": 21600,
-                "stat": "Sum",
-                "yAxis": {
-                  "left": {
-                    "min": 0
-                  }
-                }
-              }
-            },
-            {
-              "height": 6,
-              "width": 6,
-              "y": 0,
-              "x": 0,
-              "type": "metric",
-              "properties": {
-                "metrics": [
-                  [
-                    "AWS/ApplicationELB",
-                    "TargetResponseTime",
-                    "TargetGroup",
-                    "${TargetGroup.TargetGroupName}",
-                    "LoadBalancer",
-                    "app/avaxbridgeapes-elb/ce9e65b759c5db65"
-                  ],
-                  [
-                    "...",
-                    {
-                      "stat": "Average"
-                    }
-                  ],
-                  [
-                    "...",
-                    {
-                      "stat": "p95"
-                    }
-                  ]
-                ],
-                "view": "timeSeries",
-                "stacked": false,
-                "region": "${AWS::Region}",
-                "title": "Response Time",
-                "period": 3600,
-                "stat": "p99",
-                "yAxis": {
-                  "right": {
-                    "showUnits": true
-                  }
-                }
-              }
-            },
-            {
-              "height": 6,
-              "width": 6,
-              "y": 6,
-              "x": 0,
-              "type": "metric",
-              "properties": {
-                "metrics": [
-                  [
-                    "AWS/ApplicationELB",
-                    "HealthyHostCount",
-                    "TargetGroup",
-                    "${TargetGroup.TargetGroupName}",
-                    "LoadBalancer",
-                    "app/avaxbridgeapes-elb/ce9e65b759c5db65",
-                    {
-                      "stat": "Maximum"
-                    }
-                  ],
-                  [
-                    "..."
-                  ]
-                ],
-                "view": "timeSeries",
-                "stacked": false,
-                "region": "${AWS::Region}",
-                "title": "Healthy Hosts",
-                "period": 300,
-                "stat": "Minimum"
-              }
-            },
-            {
-              "height": 6,
-              "width": 6,
-              "y": 0,
-              "x": 18,
-              "type": "metric",
-              "properties": {
-                "metrics": [
-                  [
-                    "AWS/ApplicationELB",
-                    "RequestCount",
-                    "TargetGroup",
-                    "${TargetGroup.TargetGroupName}",
-                    "LoadBalancer",
-                    "app/avaxbridgeapes-elb/ce9e65b759c5db65"
-                  ],
-                  [
-                    ".",
-                    "HTTPCode_Target_4XX_Count",
-                    ".",
-                    ".",
-                    ".",
-                    "."
-                  ],
-                  [
-                    ".",
-                    "HTTPCode_Target_5XX_Count",
-                    ".",
-                    ".",
-                    ".",
-                    "."
-                  ]
-                ],
-                "view": "timeSeries",
-                "stacked": false,
-                "region": "${AWS::Region}",
-                "title": "RequestCount",
-                "period": 900,
-                "stat": "Sum",
-                "yAxis": {
-                  "left": {
-                    "min": 0
-                  }
-                }
-              }
-            }
-          ]
-        }
+            ]
+          }'
+        - TargetGroupName: !Select [5, !Split [":", !Ref TargetGroup]]
