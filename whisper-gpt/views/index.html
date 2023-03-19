@@ -19,6 +19,24 @@
             padding: 10px;
         }
 
+        h1 {
+            color: #f1f1f1;
+            font-size: 4rem;
+            -webkit-text-stroke: 2px #1E88E5;
+        }
+
+        button {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            user-select: none;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
         .spinner {
             display: inline-block;
             width: 20px;
@@ -35,33 +53,26 @@
 
         #recordButton,
         #sendTextButton {
-            background-color: #4CAF50;
+            background-color: #2196F3;
         }
 
         #stopAudioButton {
-            background-color: #f00;
+            background-color: #FF9800;
         }
 
         #recordButton,
         #stopAudioButton,
         #sendTextButton {
-            display: flex;
-            justify-content: center;
-            align-items: center;
             width: 100px;
             height: 50px;
-            text-align: center;
             line-height: 50px;
-            user-select: none;
-            cursor: pointer;
             color: white;
-            border: none;
             margin: 5px;
             font-size: 1.5rem;
         }
 
         #recordButton.recording {
-            background-color: #f00;
+            background-color: #FF9800;
             color: #fff;
         }
 
@@ -71,11 +82,11 @@
 
         #recordButton:hover:not(.recording),
         #sendTextButton:hover {
-            background-color: #45a049;
+            background-color: #1E88E5;
         }
 
         #stopAudioButton:hover {
-            background-color: #d00;
+            background-color: #F57C00;
         }
 
         #messageList {
@@ -89,7 +100,7 @@
         }
 
         #messageList li:nth-child(odd) {
-            background-color: #f2f2f2;
+            background-color: #f1f1f1;
         }
 
         #messageList li:nth-child(even) {
@@ -116,7 +127,7 @@
             flex-grow: 1;
             height: 50px;
             resize: vertical;
-            margin: 5px 0;
+            margin: 5px;
             padding: 5px;
         }
 
@@ -148,7 +159,7 @@
             align-items: center;
             flex-wrap: wrap;
             padding: 10px;
-            background-color: #f1f1f1;
+            background-color: #F1F1F1;
         }
 
         #micControls {
@@ -164,9 +175,13 @@
             flex-grow: 1;
         }
 
-        @media (max-width: 480px) {
+        @media (max-width: 600px) {
             #controlBar {
                 flex-direction: column;
+            }
+
+            h1 {
+                font-size: 2rem;
             }
         }
 
@@ -188,11 +203,26 @@
             min-width: 100px;
             padding: 0 10px;
             height: 50px;
+            background-color: #F1F1F1;
+            color: #000;
+            line-height: 50px;
+            margin: 5px;
+            font-size: 1rem;
+        }
+
+        .promptButton:hover {
+            background-color: #1E88E5;
+            color: #fff;
         }
 
         .promptButton.selected {
-            background-color: #007bff;
+            background-color: #2196F3;
             color: #fff;
+        }
+
+        .promptButton.selected:hover {
+            background-color: #F1F1F1;
+            color: #000;
         }
     </style>
 </head>
