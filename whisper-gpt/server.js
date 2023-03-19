@@ -25,10 +25,11 @@ const configuration = new Configuration({
 });
 const openai = new OpenAIApi(configuration);
 const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN;
-// NOTE: Stable diffusion 2.1 models. Model db21e4 is optimized for speed, but seems to be worse
-// than f178fa.
-const STABLE_DIFFUSION_MODEL = 'db21e45d3f7023abc2a46ee38a23973f6dce16bb082a930b0c49861f96d1e5bf';
-//const STABLE_DIFFUSION_MODEL = 'f178fa7a1ae43a9a9af01b833b9d2ecf97b1bcb0acfd2dc5dd04895e042863f1';
+// NOTE: Stable diffusion 2.1 models. The faster model gives lower quality outputs.
+const REPLICATE_MODELS = {
+    'stableDiffusion_21_fast': 'db21e45d3f7023abc2a46ee38a23973f6dce16bb082a930b0c49861f96d1e5bf',
+    'stableDiffusion_21': 'f178fa7a1ae43a9a9af01b833b9d2ecf97b1bcb0acfd2dc5dd04895e042863f1',
+};
 const REPLICATE_POLL_TIME = 250;
 
 const UPLOAD_FOLDER = 'uploads';
@@ -198,13 +199,13 @@ async function transcribeAudioFile(filePath) {
     }
 }
 
-async function generateImageWithStableDiffusion(description) {
+async function generateImageWithStableDiffusion(description, options) {
     try {
         const generateInput = {
-            version: STABLE_DIFFUSION_MODEL,
+            version: REPLICATE_MODELS[options.imageModelVersion || 'stableDiffusion_21_fast'],
             input: {
                 prompt: description,
-                image_dimensions: STABLE_DIFFUSION_IMAGE_SIZE,
+                image_dimensions: options.imageSize || STABLE_DIFFUSION_IMAGE_SIZE,
             },
         };
 
@@ -286,12 +287,13 @@ async function generateImageWithStableDiffusion(description) {
     }
 }
 
-async function generateImageWithDallE(description) {
+async function generateImageWithDallE(description, options) {
     try {
+        const imageSize = options.imageSize || OPENAI_IMAGE_SIZE;
         const generateInput = {
             prompt: description,
             n: 1,
-            size: OPENAI_IMAGE_SIZE,
+            size: imageSize,
         };
         const startTime = performance.now();
         const generateResponse = await openai.createImage(generateInput);
@@ -306,7 +308,7 @@ async function generateImageWithDallE(description) {
 
             const inferId = createInferId();
             const imageFile = `${inferId}.png`;
-            const cost = OPENAI_IMAGE_PRICE[OPENAI_IMAGE_SIZE];
+            const cost = OPENAI_IMAGE_PRICE[imageSize];
 
             await uploadFileToS3(
                 'whisper-gpt-generated',
@@ -374,13 +376,14 @@ async function measureTime(operation) {
     return [performance.now() - startTime, returnValue];
 }
 
-async function generateChatCompletion(messages) {
+async function generateChatCompletion(messages, options = {}) {
+    const model = options.chatModel || CHAT_MODEL;
     const input = {
-        model: CHAT_MODEL,
+        model,
         messages,
     };
     const [responseTime, response] = await measureTime(() => openai.createChatCompletion(input));
-    const cost = OPENAI_CHAT_PRICE[CHAT_MODEL] * response.data.usage.total_tokens;
+    const cost = OPENAI_CHAT_PRICE[model] * response.data.usage.total_tokens;
     const inferId = createInferId();
 
     await uploadFileToS3(
@@ -437,11 +440,14 @@ function uploadFileToS3(bucketName, key, data, contentType) {
 }
 
 // TODO: Add a config option or argument to switch between DALL-E and Stable Diffusion
-async function generateInlineImages(message) {
+async function generateInlineImages(message, options = {}) {
     const imagePromises = [];
+    const generateImage = options.imageModel == 'DALL-E'
+        ? generateImageWithDallE
+        : generateImageWithStableDiffusion;
+
     for (let [pattern, description] of Array.from(message.matchAll(IMAGE_REGEX))) {
-        //imagePromises.push(generateImageWithDallE(description)
-        imagePromises.push(generateImageWithStableDiffusion(description)
+        imagePromises.push(generateImage(description, options)
             .then((imageFile) => [pattern, description, imageFile]));
     }
     let updatedMessage = message;
@@ -487,8 +493,8 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
 
 // This is used for text
 app.post('/renderMessage', async (req, res) => {
-    const { message } = req.body;
-    const renderedMessage = await generateInlineImages(message);
+    const { message, options = {} } = req.body;
+    const renderedMessage = await generateInlineImages(message, options);
     // Render markdown to HTML for display in the browser
     const html = markdown.render(renderedMessage);
     res.type('json');
@@ -498,14 +504,14 @@ app.post('/renderMessage', async (req, res) => {
 
 app.post('/chat', async (req, res) => {
     try {
-        const { messages } = req.body;
+        const { messages, options = {} } = req.body;
 
-        const reply = await generateChatCompletion(messages);
+        const reply = await generateChatCompletion(messages, options);
 
         // Detect language to assist speech synthesis on frontend
         const language = await detectLanguage(reply);
 
-        const renderedReply = await generateInlineImages(reply);
+        const renderedReply = await generateInlineImages(reply, options);
 
         // Apply code assistant hooks
         /*
