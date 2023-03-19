@@ -76,9 +76,11 @@ const REPLICATE_PRICE = {
 }
 
 const STABLE_DIFFUSION_PRICE = REPLICATE_PRICE['a100'];
+const STABLE_DIFFUSION_IMAGE_SIZE = '768x768';
 
 const IMAGE_REGEX = /IMAGE\s?\(([^)]*)\)/g;
-const IMAGE_SIZE = '1024x1024';
+
+const OPENAI_IMAGE_SIZE = '1024x1024';
 
 const LS_REGEX = /LS\(([^)]*)\)/g;
 const CAT_REGEX = /CAT\(([^)]*)\)/g;
@@ -202,6 +204,7 @@ async function generateImageWithStableDiffusion(description) {
             version: STABLE_DIFFUSION_MODEL,
             input: {
                 prompt: description,
+                image_dimensions: STABLE_DIFFUSION_IMAGE_SIZE,
             },
         };
 
@@ -288,7 +291,7 @@ async function generateImageWithDallE(description) {
         const generateInput = {
             prompt: description,
             n: 1,
-            size: IMAGE_SIZE,
+            size: OPENAI_IMAGE_SIZE,
         };
         const startTime = performance.now();
         const generateResponse = await openai.createImage(generateInput);
@@ -303,7 +306,7 @@ async function generateImageWithDallE(description) {
 
             const inferId = createInferId();
             const imageFile = `${inferId}.png`;
-            const cost = OPENAI_IMAGE_PRICE[IMAGE_SIZE];
+            const cost = OPENAI_IMAGE_PRICE[OPENAI_IMAGE_SIZE];
 
             await uploadFileToS3(
                 'whisper-gpt-generated',
@@ -437,6 +440,7 @@ function uploadFileToS3(bucketName, key, data, contentType) {
 async function generateInlineImages(message) {
     const imagePromises = [];
     for (let [pattern, description] of Array.from(message.matchAll(IMAGE_REGEX))) {
+        //imagePromises.push(generateImageWithDallE(description)
         imagePromises.push(generateImageWithStableDiffusion(description)
             .then((imageFile) => [pattern, description, imageFile]));
     }
