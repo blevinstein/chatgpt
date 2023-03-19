@@ -27,10 +27,12 @@ const openai = new OpenAIApi(configuration);
 const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN;
 // NOTE: Stable diffusion 2.1 models. The faster model gives lower quality outputs.
 const REPLICATE_MODELS = {
-    'stableDiffusion_21_fast': 'db21e45d3f7023abc2a46ee38a23973f6dce16bb082a930b0c49861f96d1e5bf',
-    'stableDiffusion_21': 'f178fa7a1ae43a9a9af01b833b9d2ecf97b1bcb0acfd2dc5dd04895e042863f1',
+    'replicate_stableDiffusion_21_fast': 'db21e45d3f7023abc2a46ee38a23973f6dce16bb082a930b0c49861f96d1e5bf',
+    'replciate_stableDiffusion_21': 'f178fa7a1ae43a9a9af01b833b9d2ecf97b1bcb0acfd2dc5dd04895e042863f1',
 };
 const REPLICATE_POLL_TIME = 250;
+
+const STABILITY_AI_KEY = process.env.STABILITY_AI_KEY;
 
 const OPENAI_CHAT_PRICE = {
     // Costs per token
@@ -56,8 +58,11 @@ const REPLICATE_PRICE = {
     'a100': 0.0023,
 }
 
-const STABLE_DIFFUSION_PRICE = REPLICATE_PRICE['a100'];
+const REPLICATE_STABLE_DIFFUSION_PRICE = REPLICATE_PRICE['a100'];
 const STABLE_DIFFUSION_IMAGE_SIZE = '768x768';
+
+// Stable diffusion via their API costs $10/mo for 1k requests
+const STABLE_DIFFUSION_PRICE = 0.01;
 
 const IMAGE_REGEX = /IMAGE\s?\(([^)]*)\)/g;
 
@@ -171,11 +176,25 @@ export async function generateChatCompletion(messages, options = {}, user) {
 
 // TODO: Add a config option or argument to switch between DALL-E and Stable Diffusion
 export async function generateInlineImages(message, options = {}, user) {
-    const imagePromises = [];
-    const generateImage = options.imageModel == 'dallE'
-        ? generateImageWithDallE
-        : generateImageWithReplicate;
+    let generateImage;
+    switch (options.imageModel) {
+        case 'dallE':
+            generateImage = generateImageWithDallE;
+            break;
+        case 'replicate_stableDiffusion_21':
+        case 'replicate_stableDiffusion_21_fast':
+            generateImage = generateImageWithReplicate;
+            break;
+        case 'stableDiffusion':
+            generateImage = generateImageWithStableDiffusion;
+            break;
+        default:
+            generateImage = generateImageWithDallE;
+            console.error(`Unexpected imageModel specified: ${options.imageModel}`);
+            break;
+    }
 
+    const imagePromises = [];
     for (let [pattern, description] of Array.from(message.matchAll(IMAGE_REGEX))) {
         imagePromises.push(generateImage(description, options, user)
             .then((imageFile) => [pattern, description, imageFile]));
@@ -244,7 +263,7 @@ export async function generateImageWithReplicate(description, options, user) {
 
         const imageResponse = await axios.get(downloadUrl, { responseType: 'arraybuffer' });
         const responseTime = performance.now() - startTime;
-        const cost = statusResponse.data.metrics.predict_time * STABLE_DIFFUSION_PRICE;
+        const cost = statusResponse.data.metrics.predict_time * REPLICATE_STABLE_DIFFUSION_PRICE;
 
         // Save the image to disk
         const inferId = createInferId();
@@ -261,7 +280,7 @@ export async function generateImageWithReplicate(description, options, user) {
             `image-${inferId}.json`,
             JSON.stringify({
                 type: 'createImage',
-                model: 'stableDiffusion',
+                model: 'replicate_stableDiffusion',
                 input: generateInput,
                 response: statusResponse.data,
                 cost,
@@ -335,4 +354,69 @@ export async function generateImageWithDallE(description, options, user) {
         console.error('Error generating image with DALL-E:', error.message);
     }
 }
+
+export async function generateImageWithStableDiffusion(description, options, user) {
+    const [width, height] = (options.imageSize || STABLE_DIFFUSION_IMAGE_SIZE)
+        .split('x').map(Number);
+    const inferId = createInferId();
+
+    try {
+        const generateInput = {
+            key: STABILITY_AI_KEY,
+            prompt: description,
+            samples: 1,
+            width,
+            height,
+            num_inference_steps: 20,
+            guidance_scale: 7.5,
+            track_id: inferId,
+        };
+
+        const startTime = performance.now();
+        const generateResponse = await axios.post(
+            'https://stablediffusionapi.com/api/v3/text2img',
+            generateInput,
+            { responseType: 'json' },
+        );
+
+        if (generateResponse && generateResponse.data && generateResponse.data.output) {
+            const downloadUrl = generateResponse.data.output[0];
+            const imageResponse = await axios.get(downloadUrl, { responseType: 'arraybuffer' });
+            const responseTime = performance.now() - startTime;
+
+            const imageFile = `${inferId}.png`;
+            const imageUrl = `https://whisper-gpt-generated.s3.amazonaws.com/${imageFile}`;
+            const cost = STABLE_DIFFUSION_PRICE;
+
+            await uploadFileToS3(
+                'whisper-gpt-generated',
+                imageFile,
+                Buffer.from(imageResponse.data),
+                'image/png');
+            await uploadFileToS3(
+                'whisper-gpt-logs',
+                `image-${inferId}.json`,
+                JSON.stringify({
+                    type: 'createImage',
+                    model: 'stableDiffusion',
+                    input: generateInput,
+                    response: generateResponse.data,
+                    imageUrl,
+                    responseTime,
+                    user,
+                    options,
+                    cost,
+                }, null, 4),
+                'application/json');
+
+            console.log(`Image generated by Stability Diffusion (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset})  [${inferId}] (${(responseTime / 1000).toFixed(2)}s)`);
+            return imageUrl;
+        } else {
+            console.error('No image URL found in the response');
+        }
+    } catch (error) {
+        console.error('Error generating image with Stability Diffusion:', error.message);
+    }
+}
+
 

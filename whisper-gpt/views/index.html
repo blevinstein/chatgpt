@@ -42,7 +42,10 @@
             <div id="optionsReveal" class="hidden">
                 <pre id="optionsInstructions">
 "chatModel": "gpt-3.5-turbo" or "gpt-4"
-"imageModel": "stableDiffusion_21_fast" or "stableDiffusion_21" or "dallE"
+"imageModel":
+    for Dall-E: "dallE"
+    for Replicate/StableDiffusion: "stableDiffusion_21_fast" or "stableDiffusion_21"
+    for StableDiffusion: "stableDiffusion"
 "imageSize"
     for Dall-E: "256x256" or "512x512" or "1024x1024"
     for Stable Diffusion: "512x512" or "768x768"
@@ -50,7 +53,7 @@
                 <textarea id="options">
 {
   "chatModel": "gpt-3.5-turbo",
-  "imageModel": "stableDiffusion_21_fast",
+  "imageModel": "stableDiffusion",
   "imageSize": "512x512"
 }
                 </textarea>
