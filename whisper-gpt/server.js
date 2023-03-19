@@ -424,6 +424,7 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
         await fs.promises.unlink(oldPath);
 
         const transcribedText = await transcribeAudioFile(newPath);
+        await fs.promises.unlink(newPath);
         if (transcribedText) {
             res.status(200).send(transcribedText);
         } else {
