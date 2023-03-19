@@ -13,7 +13,6 @@ Parameters:
     Type: AWS::EC2::Subnet::Id
 
 Resources:
-
   WhisperGptCluster:
     Type: AWS::ECS::Cluster
     Properties:
@@ -49,6 +48,7 @@ Resources:
   WhisperGptService:
     Type: AWS::ECS::Service
     Properties:
+      ServiceName: !Sub whisper-gpt-service-${EnvironmentName}
       Cluster: !Ref WhisperGptCluster
       TaskDefinition: !Ref WhisperGptTaskDefinition
       DesiredCount: 1
@@ -163,5 +163,4 @@ Resources:
       Actions:
         - Type: forward
           TargetGroupArn: !Ref TargetGroup
-
 

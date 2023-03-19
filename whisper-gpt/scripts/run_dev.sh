@@ -2,4 +2,4 @@
 
 set -e
 
-ENV=dev docker-compose up
+ENV=dev docker-compose up --build
