@@ -25,8 +25,8 @@ const configuration = new Configuration({
 const openai = new OpenAIApi(configuration);
 
 const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN;
-// NOTE: Stable diffusion 2.1 models. The faster model gives lower quality outputs.
 const REPLICATE_MODELS = {
+    // NOTE: Stable diffusion 2.1 models. The faster model gives lower quality outputs.
     'replicate_stableDiffusion_21_fast': 'db21e45d3f7023abc2a46ee38a23973f6dce16bb082a930b0c49861f96d1e5bf',
     'replciate_stableDiffusion_21': 'f178fa7a1ae43a9a9af01b833b9d2ecf97b1bcb0acfd2dc5dd04895e042863f1',
 };
@@ -59,15 +59,16 @@ const REPLICATE_PRICE = {
 }
 
 const REPLICATE_STABLE_DIFFUSION_PRICE = REPLICATE_PRICE['a100'];
-const STABLE_DIFFUSION_IMAGE_SIZE = '768x768';
+const DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE = '768x768';
 
 // Stable diffusion via their API costs $10/mo for 1k requests
 const STABLE_DIFFUSION_PRICE = 0.01;
 
 const IMAGE_REGEX = /IMAGE\s?\(([^)]*)\)/g;
 
-//const CHAT_MODEL = 'gpt-4';
-const CHAT_MODEL = 'gpt-3.5-turbo';
+const DEFAULT_CHAT_MODEL = 'gpt-3.5-turbo';
+
+const DEFAULT_DREAMBOOTH_MODEL_ID = 'midjourney';
 
 export function getAudioDuration(filePath) {
     return new Promise((resolve, reject) => {
@@ -142,7 +143,7 @@ export async function transcribeAudioFile(filePath, user) {
 }
 
 export async function generateChatCompletion(messages, options = {}, user) {
-    const model = options.chatModel || CHAT_MODEL;
+    const model = options.chatModel || DEFAULT_CHAT_MODEL;
     const input = {
         model,
         messages,
@@ -188,6 +189,9 @@ export async function generateInlineImages(message, options = {}, user) {
         case 'stableDiffusion':
             generateImage = generateImageWithStableDiffusion;
             break;
+        case 'dreambooth':
+            generateImage = generateImageWithStableDiffusion;
+            break;
         default:
             generateImage = generateImageWithDallE;
             console.error(`Unexpected imageModel specified: ${options.imageModel}`);
@@ -215,7 +219,7 @@ export async function generateImageWithReplicate(description, options, user) {
             version: REPLICATE_MODELS[options.imageModel || 'stableDiffusion_21_fast'],
             input: {
                 prompt: description,
-                image_dimensions: options.imageSize || STABLE_DIFFUSION_IMAGE_SIZE,
+                image_dimensions: options.imageSize || DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE,
             },
         };
 
@@ -356,13 +360,15 @@ export async function generateImageWithDallE(description, options, user) {
 }
 
 export async function generateImageWithStableDiffusion(description, options, user) {
-    const [width, height] = (options.imageSize || STABLE_DIFFUSION_IMAGE_SIZE)
+    const [width, height] = (options.imageSize || DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE)
         .split('x').map(Number);
     const inferId = createInferId();
+    const isDreambooth = options.imageModel === 'dreambooth';
 
     try {
         const generateInput = {
             key: STABILITY_AI_KEY,
+            model_id: isDreambooth ? options.imageModelId || DEFAULT_DREAMBOOTH_MODEL_ID : undefined,
             prompt: description,
             samples: 1,
             width,
@@ -374,7 +380,9 @@ export async function generateImageWithStableDiffusion(description, options, use
 
         const startTime = performance.now();
         const generateResponse = await axios.post(
-            'https://stablediffusionapi.com/api/v3/text2img',
+            isDreambooth
+                ? 'https://stablediffusionapi.com/api/v3/dreambooth'
+                : 'https://stablediffusionapi.com/api/v3/text2img',
             generateInput,
             { responseType: 'json' },
         );
@@ -398,7 +406,7 @@ export async function generateImageWithStableDiffusion(description, options, use
                 `image-${inferId}.json`,
                 JSON.stringify({
                     type: 'createImage',
-                    model: 'stableDiffusion',
+                    model: isDreambooth ? 'dreambooth' : 'stableDiffusion',
                     input: generateInput,
                     response: generateResponse.data,
                     imageUrl,
