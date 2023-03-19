@@ -202,7 +202,7 @@ async function transcribeAudioFile(filePath) {
 async function generateImageWithStableDiffusion(description, options) {
     try {
         const generateInput = {
-            version: REPLICATE_MODELS[options.imageModelVersion || 'stableDiffusion_21_fast'],
+            version: REPLICATE_MODELS[options.imageModel || 'stableDiffusion_21_fast'],
             input: {
                 prompt: description,
                 image_dimensions: options.imageSize || STABLE_DIFFUSION_IMAGE_SIZE,
@@ -442,7 +442,7 @@ function uploadFileToS3(bucketName, key, data, contentType) {
 // TODO: Add a config option or argument to switch between DALL-E and Stable Diffusion
 async function generateInlineImages(message, options = {}) {
     const imagePromises = [];
-    const generateImage = options.imageModel == 'DALL-E'
+    const generateImage = options.imageModel == 'dallE'
         ? generateImageWithDallE
         : generateImageWithStableDiffusion;
 

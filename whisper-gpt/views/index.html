@@ -37,7 +37,26 @@
     </div>
 
     <footer>
-        <p>Build time: <span id="buildTime"></span></p>
+        <div id="optionsContainer">
+            <a id="showOptions" href="#">Options</a>
+            <div id="optionsReveal" class="hidden">
+                <pre id="optionsInstructions">
+"chatModel": "gpt-3.5-turbo" or "gpt-4"
+"imageModel": "stableDiffusion_21_fast" or "stableDiffusion_21" or "dallE"
+"imageSize"
+    for Dall-E: "256x256" or "512x512" or "1024x1024"
+    for Stable Diffusion: "512x512" or "768x768"
+                </pre>
+                <textarea id="options">
+{
+  "chatModel": "gpt-3.5-turbo",
+  "imageModel": "stableDiffusion_21_fast",
+  "imageSize": "768x768"
+}
+                </textarea>
+            </div>
+        </div>
+        <p id="buildTimeContainer">Build time: <span id="buildTime"></span></p>
     </footer>
 
     <script src="script.js"></script>

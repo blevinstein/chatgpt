@@ -6,11 +6,11 @@
 
 body {
     font-family: Arial, sans-serif;
-    padding: 10px;
+    padding: 1rem;
 }
 
 h1 {
-    padding: 10px;
+    padding: 1rem;
     color: #f1f1f1;
     font-size: 4rem;
     -webkit-text-stroke: 2px #1E88E5;
@@ -24,14 +24,31 @@ button {
     user-select: none;
     cursor: pointer;
     border: none;
-    border-radius: 4px;
+    border-radius: 0.25rem;
     transition: background-color 0.3s, color 0.3s;
+}
+
+a {
+    color: #1E88E5;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+textarea {
+    padding: 0.5rem;
+}
+
+.hidden {
+    display: none !important;
 }
 
 .spinner {
     display: inline-block;
-    width: 20px;
-    height: 20px;
+    width: 2rem;
+    height: 2rem;
     border: 2px solid rgba(0, 0, 0, 0.1);
     border-left-color: #000;
     border-radius: 50%;
@@ -54,11 +71,11 @@ button {
 #recordButton,
 #stopAudioButton,
 #sendTextButton {
-    width: 100px;
-    height: 50px;
-    line-height: 50px;
+    width: 8rem;
+    height: 3rem;
+    line-height: 3rem;
     color: white;
-    margin: 5px;
+    margin: 0.25rem;
     font-size: 1.5rem;
 }
 
@@ -86,8 +103,8 @@ button {
 }
 
 #messageList li {
-    padding: 10px;
-    border-radius: 4px;
+    padding: 1rem;
+    border-radius: 0.25rem;
 }
 
 #messageList li:nth-child(odd) {
@@ -110,34 +127,27 @@ button {
 #systemInput {
     width: 100%;
     resize: vertical;
-    padding: 5px;
-    margin-top: 10px;
+    margin-top: 1rem;
 }
 
 #textInput {
     flex-grow: 1;
-    height: 50px;
+    height: 3rem;
     resize: vertical;
-    margin: 5px;
-    padding: 5px;
+    margin: 0.25rem;
 }
 
-#logout {
-    color: #1E88E5;
-    display: inline-block;
-    text-decoration: none;
-    padding: 5px 10px;
-}
-
-#logout:hover {
-    text-decoration: underline;
+#logout,
+#showOptions,
+#buildTimeContainer {
+    padding: 0.5rem 1rem;
 }
 
 #headerBar {
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 10px;
+    padding: 1rem;
 }
 
 #controlBar {
@@ -145,7 +155,7 @@ button {
     justify-content: center;
     align-items: center;
     flex-wrap: wrap;
-    padding: 10px;
+    padding: 1rem;
     background-color: #F1F1F1;
 }
 
@@ -168,7 +178,7 @@ button {
     }
 
     h1 {
-        padding: 10px;
+        padding: 1rem;
         color: #1E88E5;
         font-size: 2rem;
         -webkit-text-stroke: 0;
@@ -190,13 +200,13 @@ button {
 }
 
 .promptButton {
-    min-width: 100px;
-    padding: 0 10px;
-    height: 50px;
+    min-width: 8rem;
+    padding: 0 1rem;
+    height: 3rem;
     background-color: #F1F1F1;
     color: #000;
-    line-height: 50px;
-    margin: 5px;
+    line-height: 3rem;
+    margin: 0.25rem;
     font-size: 1rem;
 }
 
@@ -216,9 +226,40 @@ button {
 }
 
 footer {
-    display: flex;
-    justify-content: center;
     align-items: center;
+    display: flex;
+    flex-direction: column;
     font-size: 0.75rem;
-    margin: 10px;
+    justify-content: center;
+    margin: 1rem;
+}
+
+#optionsContainer {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    max-width: 1000px;
+    width: 100%;
+}
+
+#options {
+    height: 5rem;
+    resize: vertical;
+    width: 100%;
+}
+
+#optionsReveal {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    width: 100%;
+}
+
+#optionsInstructions {
+    border: 1px dashed grey;
+    color: grey;
+    padding: 0.5rem;
+    width: 100%;
 }

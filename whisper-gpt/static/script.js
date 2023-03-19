@@ -27,6 +27,12 @@ textInput.addEventListener('keypress', async (event) => {
     }
 });
 
+const showOptions = document.getElementById('showOptions');
+showOptions.addEventListener('click', (event) => {
+    event.preventDefault();
+    document.getElementById('optionsReveal').classList.toggle('hidden');
+});
+
 document.addEventListener('DOMContentLoaded', async () => {
     await fetchPrompts();
     await fetchBuildTime();
@@ -149,7 +155,6 @@ async function stopRecordingAndUpload() {
 
         const listItem = createListItemWithSpinner();
 
-        // Add transcription to messages
         try {
             const response = await fetch('/transcribe', {
                 method: 'POST',
@@ -173,6 +178,7 @@ async function stopRecordingAndUpload() {
         // TODO: Re-enable automatic chat responses
         // await requestChatResponse();
     };
+
     mediaRecorder.stop();
     mediaStream.getTracks().forEach(t => t.stop());
 }
@@ -182,6 +188,17 @@ function escapeHTML(unsafeText) {
     let div = document.createElement('div');
     div.innerText = unsafeText;
     return div.innerHTML;
+}
+
+function getOptions() {
+    try {
+        const options = JSON.parse(document.getElementById('options').value.trim());
+        console.log(options);
+        return options;
+    } catch (error) {
+        console.error('Failed to parse options:', error);
+        return {};
+    }
 }
 
 async function sendTextMessage() {
@@ -194,7 +211,7 @@ async function sendTextMessage() {
             const response = await fetch('/renderMessage', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message }),
+                body: JSON.stringify({ message, options: getOptions() }),
             });
 
             if (response.ok) {
@@ -225,6 +242,7 @@ async function requestChatResponse() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 messages: [{ role: 'system', content: fullPrompt}].concat(messages),
+                options: getOptions(),
             }),
         });
 
@@ -275,6 +293,7 @@ async function fetchPrompts() {
     }
 }
 
+// Updates the system prompt (internal text and visible HTML) based on `selectedPrompts`.
 function updateSystemPrompt() {
     systemPrompt =
         selectedPrompts.map(p => promptCache[p].text).join('\n\n');
