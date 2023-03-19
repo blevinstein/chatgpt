@@ -36,8 +36,6 @@ const UPLOAD_FOLDER = 'uploads';
 const WORKSPACE_FOLDER = 'workspace';
 const PROMPT_FOLDER = 'prompt';
 
-const HIDDEN_PROMPTS = ['coding'];
-
 const upload = multer({ dest: UPLOAD_FOLDER + '/' });
 
 AWS.config.update({
@@ -576,8 +574,7 @@ app.get('/prompts', async (req, res) => {
     const files = await fs.promises.readdir(PROMPT_FOLDER);
     const names = files
         .filter(f => f.endsWith('.txt'))
-        .map(f => f.slice(0, -4))
-        .filter(f => !HIDDEN_PROMPTS.includes(f));
+        .map(f => f.slice(0, -4));
     res.type('json');
     res.status(200).send(JSON.stringify(names));
 });
