@@ -28,7 +28,7 @@ const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN;
 const REPLICATE_MODELS = {
     // NOTE: Stable diffusion 2.1 models. The faster model gives lower quality outputs.
     'replicate_stableDiffusion_21_fast': 'db21e45d3f7023abc2a46ee38a23973f6dce16bb082a930b0c49861f96d1e5bf',
-    'replciate_stableDiffusion_21': 'f178fa7a1ae43a9a9af01b833b9d2ecf97b1bcb0acfd2dc5dd04895e042863f1',
+    'replicate_stableDiffusion_21': 'f178fa7a1ae43a9a9af01b833b9d2ecf97b1bcb0acfd2dc5dd04895e042863f1',
 };
 const REPLICATE_POLL_TIME = 250;
 
@@ -407,7 +407,7 @@ export async function generateImageWithStableDiffusion(description, options, use
                 JSON.stringify({
                     type: 'createImage',
                     model: isDreambooth ? 'dreambooth' : 'stableDiffusion',
-                    input: generateInput,
+                    input: { ...generateInput, key: undefined },
                     response: generateResponse.data,
                     imageUrl,
                     responseTime,
