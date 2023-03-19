@@ -1,8 +1,6 @@
 import cookieSession from 'cookie-session';
 import express from 'express';
-import ffmpeg from 'fluent-ffmpeg';
 import fs from 'fs';
-import { detect } from 'langdetect';
 import MarkdownIt from 'markdown-it';
 import multer from 'multer';
 import passport from 'passport';
@@ -10,15 +8,13 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import path from 'path';
 import sanitize from 'sanitize-filename';
 
-import { COLOR, createInferId } from './common.js';
+import { detectLanguage, getExtensionByMimeType, remuxAudio } from './common.js';
 import { transcribeAudioFile, generateChatCompletion, generateInlineImages } from './integrations.js';
 
 const markdown = MarkdownIt();
 
 const UPLOAD_FOLDER = 'uploads';
 const PROMPT_FOLDER = 'prompt';
-
-const upload = multer({ dest: UPLOAD_FOLDER + '/' });
 
 if (!fs.existsSync(UPLOAD_FOLDER)) {
     fs.mkdirSync(UPLOAD_FOLDER);
@@ -30,45 +26,8 @@ const CAT_REGEX = /CAT\(([^)]*)\)/g;
 const WRITE_REGEX = /`*\s*WRITE\(([^)]*)\)\s*`*([^`]*)`+/g;
 */
 
-function getExtensionByMimeType(mimeType) {
-    const extensions = {
-        'audio/webm': '.webm',
-        'audio/ogg': '.ogg',
-        'audio/mpeg': '.mp3',
-        'audio/mp4': '.m4a',
-        'audio/wave': '.wav',
-        'audio/wav': '.wav',
-        'audio/x-wav': '.wav',
-    };
-
-    return extensions[mimeType] || '';
-}
-
 function getUser(req) {
     return req.session.user.emails[0].value;
-}
-
-async function detectLanguage(text) {
-  const languages = detect(text);
-  console.log(`Inferred languages: ${JSON.stringify(languages)}`);
-  return languages[0].lang;
-}
-
-function remuxAudio(input, output) {
-    return new Promise((resolve, reject) => {
-        ffmpeg(input)
-            .output(output)
-            .audioCodec('copy')
-            .noVideo()
-            .on('end', () => {
-                resolve();
-            })
-            .on('error', (err, stdout, stderr) => {
-                console.error('Error during remuxing:', err);
-                reject(err);
-            })
-            .run();
-    });
 }
 
 function ensureAuthenticated(req, res, next) {
@@ -137,7 +96,7 @@ app.get('/health-check', (req, res) => res.status(200).send('OK'));
 // must go above this line!!!
 app.use(ensureAuthenticated);
 
-
+const upload = multer({ dest: UPLOAD_FOLDER + '/' });
 app.post('/transcribe', upload.single('audio'), async (req, res) => {
     if (req.file) {
         const { mimeType } = req.body;
@@ -182,12 +141,13 @@ app.post('/renderMessage', async (req, res) => {
     res.send(JSON.stringify({ html }));
 });
 
-
 app.post('/chat', async (req, res) => {
     try {
         const { messages, options = {} } = req.body;
 
-        const [ reply, renderedReply ] = await generateChatCompletion(messages, options, getUser(req));
+        const chatCompletion = generateChatCompletion(messages, options, getUser(req));
+        const { value: reply } = await chatCompletion.next();
+        const { value: updatedReply } = await chatCompletion.next();
 
         // Detect language to assist speech synthesis on frontend
         const language = await detectLanguage(reply);
@@ -197,23 +157,23 @@ app.post('/chat', async (req, res) => {
         for (let [_, unsafePath] of Array.from(reply.matchAll(LS_REGEX))) {
             const command = `ls ${path.join(WORKSPACE_FOLDER, sanitize(unsafePath))}`;
             const output = child_process.execSync(command);
-            renderedReply += `\n\n    $> ${command}\n\n    ${output}`;
+            updatedReply += `\n\n    $> ${command}\n\n    ${output}`;
         }
         for (let [_, unsafePath] of Array.from(reply.matchAll(CAT_REGEX))) {
             const command = `cat ${path.join(WORKSPACE_FOLDER, sanitize(unsafePath))}`;
             const output = child_process.execSync(command);
-            renderedReply += `\n\n    $> ${command}\n\n    ${output}`;
+            updatedReply += `\n\n    $> ${command}\n\n    ${output}`;
         }
         for (let [_, unsafePath, contents] of Array.from(reply.matchAll(WRITE_REGEX))) {
             fs.writeFileSync(
                 path.join(WORKSPACE_FOLDER, sanitize(unsafePath)),
                 contents);
-            renderedReply += `\n\n    ## wrote data to ${sanitize(unsafePath)}!`;
+            updatedReply += `\n\n    ## wrote data to ${sanitize(unsafePath)}!`;
         }
         */
 
         // Render markdown to HTML for display in the browser
-        const html = markdown.render(renderedReply);
+        const html = markdown.render(updatedReply);
 
         res.type('json');
         res.status(200).send(JSON.stringify({ text: reply, language, html }));

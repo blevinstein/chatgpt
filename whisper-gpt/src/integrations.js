@@ -2,11 +2,10 @@ import AWS from 'aws-sdk';
 import axios from 'axios';
 import dotenv from 'dotenv';
 import FormData from 'form-data';
-import ffmpeg from 'fluent-ffmpeg';
 import fs from 'fs';
 import { Configuration, OpenAIApi } from 'openai';
 
-import { COLOR, createInferId, hashValue, measureTime } from './common.js';
+import { COLOR, createInferId, getAudioDuration, hashValue, measureTime } from './common.js';
 
 dotenv.config();
 
@@ -70,19 +69,6 @@ const DEFAULT_CHAT_MODEL = 'gpt-3.5-turbo';
 
 const DEFAULT_DREAMBOOTH_MODEL_ID = 'midjourney';
 
-export function getAudioDuration(filePath) {
-    return new Promise((resolve, reject) => {
-        ffmpeg.ffprobe(filePath, (error, metadata) => {
-            if (error) {
-                console.error('Error reading file:', error);
-                return;
-            }
-
-            resolve(metadata.format.duration);
-        });
-    });
-}
-
 export function uploadFileToS3(bucketName, key, data, contentType) {
     const params = {
         Bucket: bucketName,
@@ -142,7 +128,7 @@ export async function transcribeAudioFile(filePath, user) {
     }
 }
 
-export async function generateChatCompletion(messages, options = {}, user) {
+export async function* generateChatCompletion(messages, options = {}, user) {
     const model = options.chatModel || DEFAULT_CHAT_MODEL;
     const input = {
         model,
@@ -156,7 +142,9 @@ export async function generateChatCompletion(messages, options = {}, user) {
     const reply = response.data.choices[0].message.content;
     console.log(`Assistant reply: ${reply} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset}) [${inferId}] (${(responseTime/1000).toFixed(2)}s)`);
 
-    const [ renderedReply, generatedImages ] = await generateInlineImages(reply, options, user);
+    yield reply;
+
+    const [ updatedReply, generatedImages ] = await generateInlineImages(reply, options, user);
     await uploadFileToS3(
         'whisper-gpt-logs',
         `chat-${inferId}.json`,
@@ -172,7 +160,7 @@ export async function generateChatCompletion(messages, options = {}, user) {
         }, null, 4),
         'application/json');
 
-    return [ reply, renderedReply ];
+    yield updatedReply;
 }
 
 // TODO: Add a config option or argument to switch between DALL-E and Stable Diffusion
