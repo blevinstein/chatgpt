@@ -538,7 +538,16 @@ app.get('/prompt/:name', async (req, res) => {
         res.status(200).send(JSON.stringify({ text: promptData, html }));
     } catch (error) {
         console.error(`Prompt not found: ${req.params.name}`, error);
-        res.status(400).send('Prompt not found');
+        res.status(400).send(`Prompt not found`);
+    }
+});
+
+app.get('/build-time', async (req, res) => {
+    try {
+        const buildTime = await fs.promises.readFile(path.join(__dirname, 'build-time.txt'));
+        res.status(200).send(buildTime);
+    } catch (error) {
+        res.status(500).send('Build time not found!');
     }
 });
 

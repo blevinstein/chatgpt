@@ -27,7 +27,10 @@ textInput.addEventListener('keypress', async (event) => {
     }
 });
 
-document.addEventListener('DOMContentLoaded', fetchPrompts);
+document.addEventListener('DOMContentLoaded', async () => {
+    await fetchPrompts();
+    await fetchBuildTime();
+});
 
 const promptCache = {};
 let selectedPrompts = ['dan', 'image', 'audio'];
@@ -282,4 +285,21 @@ async function togglePromptButton(event) {
     }
     updateSystemPrompt();
 }
+
+async function fetchBuildTime() {
+    try {
+        const response = await fetch('/build-time');
+
+        if (response.ok) {
+            const creationTime = await response.text();
+            document.getElementById('buildTime').textContent = creationTime;
+        } else {
+            console.error('Error fetching build time:', response.statusText);
+        }
+    } catch (error) {
+        console.error('Error fetching build time:', error);
+    }
+}
+
+
 

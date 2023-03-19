@@ -21,6 +21,8 @@ COPY server.js ./
 # TODO: Remove .env from docker image, use secrets
 COPY .env ./
 
+RUN TZ=UTC date > build-time.txt
+
 # Start the app
 CMD ["npm", "start"]
 
