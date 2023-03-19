@@ -52,6 +52,7 @@ for (let folder of [UPLOAD_FOLDER, WORKSPACE_FOLDER]) {
 
 const CHAT_PRICING = {
   'gpt-3.5-turbo': 0.002e-3,
+  'gpt-4': 0.03e-3,
 };
 
 const IMAGE_PRICING = {
@@ -69,7 +70,7 @@ const LS_REGEX = /LS\(([^)]*)\)/g;
 const CAT_REGEX = /CAT\(([^)]*)\)/g;
 const WRITE_REGEX = /`*\s*WRITE\(([^)]*)\)\s*`*([^`]*)`+/g;
 
-const CHAT_MODEL = 'gpt-3.5-turbo';
+const CHAT_MODEL = 'gpt-4';
 
 const COLOR = {
     reset: "\x1b[0m",
@@ -161,9 +162,10 @@ async function transcribeAudioFile(filePath) {
                 },
             }
         );
+        const inferId = createInferId();
         await uploadFileToS3(
             'whisper-gpt-logs',
-            `transcribe-${createInferId()}.json`,
+            `transcribe-${inferId}.json`,
             JSON.stringify({
                 type: 'transcribe',
                 input: filePath,
@@ -171,7 +173,7 @@ async function transcribeAudioFile(filePath) {
             }, null, 4),
             'application/json');
 
-        console.log(`Transcribed ${audioDuration}s of audio: ${response.data.text} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset})`);
+        console.log(`Transcribed ${audioDuration}s of audio: ${response.data.text} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset}) [${inferId}]`);
         return response.data.text;
     } catch (error) {
         console.error('Error transcribing audio:', error);
@@ -258,7 +260,7 @@ async function generateImageWithStableDiffusion(description) {
             }, null, 4),
             'application/json');
 
-        console.log(`Image generated to ${imageFile}`);
+        console.log(`Image generated [${inferId}]`);
         return `https://whisper-gpt-generated.s3.amazonaws.com/${imageFile}`;
         // return imageFile;
     } catch (error) {
@@ -309,7 +311,7 @@ async function generateImageWithDallE(description) {
                 }, null, 4),
                 'application/json');
 
-            console.log(`Image generated to ${imageFile} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(3)}${COLOR.reset})`);
+            console.log(`Image generated [${inferId}] (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(3)}${COLOR.reset})`);
             return `https://whisper-gpt-generated.s3.amazonaws.com/${imageFile}`;
             // return imageFile;
         } else {
@@ -357,10 +359,11 @@ async function generateChatCompletion(messages) {
     };
     const response = await openai.createChatCompletion(input);
     const cost = CHAT_PRICING[CHAT_MODEL] * response.data.usage.total_tokens;
+    const inferId = createInferId();
 
     await uploadFileToS3(
         'whisper-gpt-logs',
-        `chat-${createInferId()}.json`,
+        `chat-${inferId}.json`,
         JSON.stringify({
             type: 'createChatCompletion',
             input,
@@ -370,7 +373,7 @@ async function generateChatCompletion(messages) {
         'application/json');
 
     const reply = response.data.choices[0].message.content;
-    console.log(`Assistant reply: ${reply} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset})`);
+    console.log(`Assistant reply: ${reply} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset}) [${inferId}]`);
     return reply;
 }
 
