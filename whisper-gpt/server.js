@@ -97,44 +97,6 @@ const COLOR = {
     yellow: "\x1b[33m",
 };
 
-const app = express();
-
-// Setup JSON parsing
-app.use(express.json());
-
-// Initialize Passport and enable session support
-app.use(session({
-  secret: process.env.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-}));
-app.use(passport.initialize());
-app.use(passport.session());
-
-// Configure Passport to use the Google OAuth2.0 strategy
-passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: "/auth/google/callback"
-  },
-  (accessToken, refreshToken, profile, cb) => {
-    // You can store user details in a database here
-    return cb(null, profile);
-  }
-));
-
-// Serialize and deserialize user instances to and from the session
-passport.serializeUser((user, done) => {
-  done(null, user);
-});
-
-passport.deserializeUser((user, done) => {
-  done(null, user);
-});
-
-// Setup static serving
-app.use(serveAuthenticatedStatic('static'));
-
 function createInferId() {
     return crypto.randomBytes(6).toString('hex');
 }
@@ -419,20 +381,10 @@ async function generateChatCompletion(messages, options = {}, user) {
 }
 
 function ensureAuthenticated(req, res, next) {
-    if (req.isAuthenticated()
-        || req.path === '/login'
-        || req.path === '/auth/google/callback') {
+    if (req.isAuthenticated()) {
         return next();
     }
     res.sendFile('views/forbidden.html', { root: __dirname });
-}
-
-function serveAuthenticatedStatic(staticPath) {
-  return (req, res, next) => {
-      ensureAuthenticated(req, res, () => {
-          express.static(staticPath)(req, res, next);
-      });
-  }
 }
 
 function uploadFileToS3(bucketName, key, data, contentType) {
@@ -471,6 +423,56 @@ async function generateInlineImages(message, options = {}, user) {
     }
     return updatedMessage;
 }
+
+const app = express();
+
+// Setup JSON parsing
+app.use(express.json());
+
+// Initialize Passport and enable session support
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+}));
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Configure Passport to use the Google OAuth2.0 strategy
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: "/auth/google/callback"
+  },
+  (accessToken, refreshToken, profile, cb) => {
+    // You can store user details in a database here
+    return cb(null, profile);
+  }
+));
+
+// Serialize and deserialize user instances to and from the session
+passport.serializeUser((user, done) => {
+  done(null, user);
+});
+
+passport.deserializeUser((user, done) => {
+  done(null, user);
+});
+
+// Setup static serving
+app.use(express.static('static'));
+app.get('/login',
+    passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+app.get('/auth/google/callback',
+    passport.authenticate('google', { successRedirect: '/', failureRedirect: '/login' }));
+
+app.get('/health-check', (req, res) => res.status(200).send('OK'));
+
+// ***** NOTE ***** Authenticated endpoints must go below this line, while unauthenticated endpoints
+// must go above this line!!!
+app.use(ensureAuthenticated);
+
 
 app.post('/transcribe', upload.single('audio'), async (req, res) => {
     if (req.file) {
@@ -562,12 +564,6 @@ app.post('/chat', async (req, res) => {
 app.get('/', function (req, res) {
     res.sendFile('views/index.html', { root: __dirname });
 });
-
-app.get('/login',
-    passport.authenticate('google', { scope: ['profile', 'email'] }));
-
-app.get('/auth/google/callback',
-    passport.authenticate('google', { successRedirect: '/', failureRedirect: '/login' }));
 
 app.get('/logout', function (req, res) {
     req.logout((error) => {

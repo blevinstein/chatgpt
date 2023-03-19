@@ -148,6 +148,13 @@ Resources:
       Protocol: HTTP
       TargetType: ip
       VpcId: !Ref VpcId
+      HealthCheckProtocol: HTTP
+      HealthCheckPort: 'traffic-port'
+      HealthCheckPath: /health-check
+      HealthCheckIntervalSeconds: 60
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 5
+      UnhealthyThresholdCount: 2
 
   # Add new rule to existing ELB Listener
   ListenerRule:
