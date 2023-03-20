@@ -276,14 +276,14 @@ async function requestChatResponse() {
             // First response: chat text is available, but images are not yet loaded (if any)
             chatStream.addEventListener('chatResponse', async (event) => {
                 const { text, language, html } = JSON.parse(event.data);
-                //console.log(`Chat response successful: ${text}`);
+                console.log(`Chat response successful: ${text}`);
                 displayMessage('assistant', text, chatListItem, html);
                 await announceMessage(text, language);
             });
             // Second response: images are loaded and the full response is available
             chatStream.addEventListener('imagesLoaded', async (event) => {
                 const { text, language, html } = JSON.parse(event.data);
-                //console.log(`Images rendered successfully: ${text}`);
+                console.log(`Images rendered successfully: ${text}`);
                 displayMessage('assistant', text, chatListItem, html);
                 chatStream.close();
                 resolve();
