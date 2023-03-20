@@ -16,22 +16,31 @@
     </div>
 
     <div id="messageContainer">
-        <div id="promptButtonContainer"></div>
+        <div id="promptButtonContainer">
+          <!-- Automatically generated promptButton elements go here -->
+        </div>
         <ul id="messageList">
             <li>
-                <b>system:</b>
-                <span id="systemPrompt"></span>
-                <textarea id="systemInput" rows="2" placeholder="(additional system instructions)"></textarea>
+                <div class="message">
+                    <div class="header">
+                        <b class="username">system:</b>
+                        <div class="buttonContainer">
+                            <button id="systemPromptCopyButton"><i class="fa fa-clone"></i></button>
+                        </div>
+                    </div>
+                    <span id="systemPrompt"></span>
+                    <textarea id="systemInput" rows="2" placeholder="(additional system instructions)"></textarea>
+                </div>
             </li>
         </ul>
         <div id="controlBar">
             <div id="micControls">
-                <button id="recordButton"><i class="fas fa-microphone"></i></button>
-                <button id="stopAudioButton"><i class="fas fa-stop"></i></button>
+                <button id="recordButton"><i class="fa fa-microphone"></i></button>
+                <button id="stopAudioButton"><i class="fa fa-stop"></i></button>
             </div>
             <div id="textControls">
                 <textarea id="textInput" rows="2" placeholder="user:"></textarea>
-                <button id="sendTextButton"><i class="fas fa-comment"></i></button>
+                <button id="sendTextButton"><i class="fa fa-comment"></i></button>
             </div>
         </div>
     </div>
@@ -74,6 +83,28 @@
         </div>
         <p id="buildTimeContainer">Build time: <span id="buildTime"></span></p>
     </footer>
+
+    <div id="templateLibrary" class="hidden">
+        <!-- List item with spinner -->
+        <li class="listItem">
+            <div class="spinner"></div>
+        </li>
+
+        <!-- Rendered message, goes inside the <li> replacing the spinner -->
+        <div class="message">
+            <div class="header">
+                <b class="username"></b>
+                <div class="buttonContainer">
+                    <button class="shareButton"><i class="fa fa-share"></i></button>
+                    <button class="copyButton"><i class="fa fa-clone"></i></button>
+                </div>
+            </div>
+            <div class="contents"></div>
+        </div>
+
+        <!-- Prompt button -->
+        <button class="promptButton"></button>
+    </div>
 
     <script src="/script.js"></script>
 </body>

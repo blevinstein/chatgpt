@@ -16,6 +16,13 @@ h1 {
     -webkit-text-stroke: 2px #1E88E5;
 }
 
+div {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
 button {
     display: flex;
     justify-content: center;
@@ -99,7 +106,7 @@ textarea {
 
 #messageList {
     list-style-type: none;
-    padding-left: 0;
+    width: 100%;
 }
 
 #messageList li {
@@ -119,7 +126,42 @@ textarea {
     max-width: 75%;
 }
 
+#messageList .message {
+    flex-direction: column;
+}
+
+#messageList .message .header {
+    justify-content: space-between;
+    width: 100%;
+}
+
+#messageList .message button {
+    height: 2rem;
+    width: 2rem;
+    background: none;
+    color: grey;
+    line-height: 1.5rem;
+    margin: 0 0.5rem;
+    font-size: 1.5rem;
+}
+
+#messageList .message button:hover {
+    color: black;
+    border: 1px solid black;
+}
+
+#messageList .message .contents {
+    display: block;
+    width: 100%;
+}
+
+#messageList .message .contents,
+#messageList #systemPrompt {
+    text-align: justify
+}
+
 #messageContainer {
+    flex-direction: column;
     max-width: 1000px;
     margin: 0 auto;
 }
@@ -144,31 +186,18 @@ textarea {
 }
 
 #headerBar {
-    display: flex;
-    justify-content: center;
-    align-items: center;
     padding: 1rem;
 }
 
 #controlBar {
-    display: flex;
-    justify-content: center;
     align-items: center;
+    background-color: #F1F1F1;
     flex-wrap: wrap;
     padding: 1rem;
-    background-color: #F1F1F1;
-}
-
-#micControls {
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    width: 100%;
 }
 
 #textControls {
-    display: flex;
-    justify-content: center;
-    align-items: center;
     flex-grow: 1;
 }
 
@@ -195,7 +224,6 @@ textarea {
 }
 
 #promptButtonContainer {
-    display: flex;
     flex-wrap: wrap;
 }
 
@@ -265,6 +293,7 @@ footer {
     border: 1px dashed grey;
     color: grey;
     padding: 0.5rem;
+    text-align: left;
     width: 100%;
 }
 
