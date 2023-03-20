@@ -49,11 +49,6 @@ optionsInput.addEventListener('focusout', () => {
     }
 });
 
-document.addEventListener('DOMContentLoaded', async () => {
-    await fetchPrompts();
-    await fetchBuildTime();
-});
-
 const promptCache = {};
 let selectedPrompts = ['dan', 'image'];
 
@@ -380,4 +375,46 @@ async function fetchBuildTime() {
 }
 
 
+document.addEventListener('DOMContentLoaded', async () => {
+    await fetchPrompts();
+    await fetchBuildTime();
+    const queryParams = new Map(new URLSearchParams(window.location.search).entries());
+    if (queryParams.get('inferId')) {
+          const response = await fetch(`/chatLog/${queryParams.get('inferId')}`);
+
+          if (response.ok) {
+              // Clear preset prompts, and set the system prompt.
+              selectedPrompts = [];
+              updateSystemPrompt();
+              Array.from(document.getElementsByClassName('selected')).forEach(e => e.classList.remove('selected'));
+              const responseData = await response.json();
+              document.getElementById('systemInput').value = responseData.input.messages[0].content;
+
+              // Load messages, except the system message, including the response message.
+              messages = responseData.input.messages.slice(1).concat(
+                  responseData.response.choices[0].message);
+
+              await Promise.all(messages.map(async message => {
+                  const response = await fetch('/renderMessage', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                          message: message.content,
+                          options: getOptions(),
+                          generatedImages: responseData.generatedImages,
+                      }),
+                  });
+
+                  if (response.ok) {
+                      const { html } = await response.json();
+                      displayMessage(message.role, message.content, createListItemWithSpinner(), html);
+                  } else {
+                      throw new Error('Failed to render message:', response.statusText);
+                  };
+              }));
+          } else {
+              console.error('Error fetching chat log:', error);
+          }
+    }
+});
 

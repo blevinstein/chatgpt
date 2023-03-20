@@ -9,7 +9,7 @@ import path from 'path';
 import sanitize from 'sanitize-filename';
 
 import { createStreamId, detectLanguage, getExtensionByMimeType, remuxAudio } from './common.js';
-import { transcribeAudioFile, generateChatCompletion, generateInlineImages, IMAGE_REGEX } from './integrations.js';
+import { downloadFileFromS3, transcribeAudioFile, generateChatCompletion, generateInlineImages, IMAGE_REGEX } from './integrations.js';
 
 const markdown = MarkdownIt();
 
@@ -133,12 +133,21 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
 
 // This is used for text
 app.post('/renderMessage', async (req, res) => {
-    const { message, options = {} } = req.body;
-    const [ renderedMessage, generatedImages ] = await generateInlineImages(message, options, getUser(req));
+    let { message, generatedImages, options = {} } = req.body;
+
+    let renderedMessage = message;
+    if (generatedImages) {
+        for (let { pattern, imageFile } of generatedImages) {
+            if (!pattern || !imageFile) continue;
+            renderedMessage = renderedMessage.replace(pattern, `![${pattern}](${imageFile})`);
+        }
+    } else {
+        [ renderedMessage, generatedImages ] = await generateInlineImages(message, options, getUser(req));
+    }
+
     // Render markdown to HTML for display in the browser
     const html = markdown.render(renderedMessage);
-    res.type('json');
-    res.send(JSON.stringify({ html }));
+    res.json({ html });
 });
 
 // Chat step 1: send a POST request here with your argument payload
@@ -217,6 +226,13 @@ app.get('/chat/:streamId', async (req, res) => {
     }
 });
 
+app.get('/chatLog/:inferId', async (req, res) => {
+    const { inferId } = req.params;
+    const chatLog = JSON.parse(
+        (await downloadFileFromS3('whisper-gpt-logs', `chat-${inferId}.json`)).Body.toString());
+    res.status(200).json(chatLog);
+});
+
 app.get('/', function (req, res) {
     res.sendFile('views/index.html', { root: process.cwd() });
 });
@@ -231,8 +247,7 @@ app.get('/prompts', async (req, res) => {
     const names = files
         .filter(f => f.endsWith('.txt'))
         .map(f => f.slice(0, -4));
-    res.type('json');
-    res.status(200).send(JSON.stringify(names));
+    res.status(200).json(names);
 });
 
 app.get('/prompt/:name', async (req, res) => {
@@ -240,8 +255,7 @@ app.get('/prompt/:name', async (req, res) => {
     try {
         const promptData = await fs.promises.readFile(filePath, { encoding: 'utf-8' });
         const html = markdown.render(promptData);
-        res.type('json');
-        res.status(200).send(JSON.stringify({ text: promptData, html }));
+        res.status(200).json({ text: promptData, html });
     } catch (error) {
         console.error(`Prompt not found: ${req.params.name}`, error);
         res.status(400).send(`Prompt not found`);

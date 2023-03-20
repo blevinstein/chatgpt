@@ -96,6 +96,24 @@ export function uploadFileToS3(bucketName, key, data, contentType) {
     });
 }
 
+export function downloadFileFromS3(bucketName, key) {
+    const params = {
+        Bucket: bucketName,
+        Key: key,
+    };
+
+    return new Promise((resolve, reject) => {
+        s3.getObject(params, (err, data) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(data);
+            }
+        });
+    });
+}
+
+
 export async function transcribeAudioFile(filePath, user) {
     const formData = new FormData();
     formData.append('file', fs.createReadStream(filePath));
@@ -165,6 +183,7 @@ export async function* generateChatCompletion(messages, options = {}, user) {
             user,
             generatedImages,
             options,
+            selfLink: `https://synaptek.bio/?inferId=${inferId}`,
         }, null, 4),
         'application/json');
 
