@@ -3,6 +3,7 @@ let mediaRecorder;
 let recordedBlobs;
 let systemPrompt = '';
 let messages = [];
+let speechCallback;
 
 const promptCache = {};
 let selectedPrompts = ['dan', 'image'];
@@ -26,7 +27,7 @@ async function initMediaRecorder() {
 }
 
 function startRecording() {
-    window.speechSynthesis.cancel();
+    if (speechCallback) { speechCallback(); }
 
     if (mediaRecorder && mediaRecorder.state === 'recording') return;
 
@@ -133,6 +134,12 @@ async function announceMessage(message, language) {
 
         utterance.onend = () => resolve();
 
+        document.getElementById('stopAudioButton').classList.add('playing');
+        speechCallback = () => {
+            document.getElementById('stopAudioButton').classList.remove('playing');
+            window.speechSynthesis.cancel();
+        }
+        utterance.addEventListener('end', speechCallback);
         window.speechSynthesis.speak(utterance);
     });
 }
@@ -435,7 +442,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     recordButton.addEventListener('touchcancel', stopRecordingAndUpload);
 
     const stopAudioButton = document.getElementById('stopAudioButton');
-    stopAudioButton.addEventListener('click', () => window.speechSynthesis.cancel());
+    stopAudioButton.addEventListener('click', () => {
+        if (speechCallback) { speechCallback(); }
+    });
 
     const sendTextButton = document.getElementById('sendTextButton');
     sendTextButton.addEventListener('click', sendTextMessage);
@@ -444,7 +453,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     textInput.addEventListener('keypress', async (event) => {
         if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
-            window.speechSynthesis.cancel();
+            if (speechCallback) { speechCallback(); }
             await sendTextMessage();
         }
     });
