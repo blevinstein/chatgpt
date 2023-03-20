@@ -93,6 +93,8 @@ function displayMessage(username, message, listItem, html) {
     } else {
       messageElement.textContent = message;
     }
+    // Add alt text to title, so you can see it by hovering.
+    messageElement.querySelectorAll('img').forEach(img => img.title = img.alt);
 
     listItem.appendChild(usernameElement);
     listItem.appendChild(messageElement);

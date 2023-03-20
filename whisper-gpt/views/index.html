@@ -49,17 +49,18 @@
     for StableDiffusion/Dreambooth: "dreambooth"
 "imageModelId"
     for Dall-E: ignored
-    for Dreambooth, see https://stablediffusionapi.com/models, try:
+    for Replicate: "stableDiffusion_21_fast" or "stableDiffusion_21" or "latentDiffusion"
+    for StableDiffusion: ignored
+    for Dreambooth: see https://stablediffusionapi.com/models, try:
         - "midjourney"
         - "realistic-vision-v13" (with prompt enhancement!)
         - "anything-v3" or "wifu-diffusion" (anime)
         - "f222-diffusion"
-    for Replicate, "stableDiffusion_21_fast" or "stableDiffusion_21" or "latentDiffusion"
 "imageSize"
     for Dall-E: "256x256" or "512x512" or "1024x1024"
     for Replicate/StableDiffusion: "512x512" or "768x768"
     for Replicate/LatentDiffusion: ignored
-    for StableDiffusion incl Dreambooth: arbitrary sizes up to "768x1024" or "1024x768"
+    for StableDiffusion or Dreambooth: arbitrary sizes up to "768x1024" or "1024x768"
                 </pre>
                 <textarea id="options">
 {
