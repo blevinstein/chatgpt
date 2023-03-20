@@ -140,6 +140,7 @@ textarea {
 
 #messageList .message .header {
     justify-content: space-between;
+    margin-bottom: 0.5rem;
     width: 100%;
 }
 
