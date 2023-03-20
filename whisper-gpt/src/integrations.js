@@ -71,7 +71,7 @@ const DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE = '768x768';
 // Stable diffusion via their API costs $10/mo for 1k requests
 const STABLE_DIFFUSION_PRICE = 0.01;
 
-export const IMAGE_REGEX = /IMAGE\s?\d{0,3}:?\s?\(([^()<>]*)\)/g;
+export const IMAGE_REGEX = /IMAGE\s?\d{0,3}:?\s?\(([^()<>]*)\)/gi;
 
 const DEFAULT_CHAT_MODEL = 'gpt-3.5-turbo';
 
