@@ -8,8 +8,8 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import path from 'path';
 import sanitize from 'sanitize-filename';
 
-import { createStreamId, detectLanguage, getExtensionByMimeType, remuxAudio } from './common.js';
-import { downloadFileFromS3, transcribeAudioFile, generateChatCompletion, generateInlineImages, IMAGE_REGEX } from './integrations.js';
+import { createStreamId, detectLanguage, getExtensionByMimeType, HOST, remuxAudio } from './common.js';
+import { downloadFileFromS3, generateChatCompletion, generateInlineImages, IMAGE_REGEX, listFilesInS3, transcribeAudioFile} from './integrations.js';
 
 const markdown = MarkdownIt();
 
@@ -229,6 +229,23 @@ app.get('/chat/:streamId', async (req, res) => {
     } catch (error) {
         console.error('Error processing chat:', error);
     }
+});
+
+app.get('/chatLogs', async (req, res) => {
+    const logs = await listFilesInS3('whisper-gpt-logs');
+    const inferIdRegex = /chat-([0-9a-f]*)\.json/;
+    const chatLogs = logs.flatMap(log => {
+        const match = log.Key.match(inferIdRegex);
+        if (!match) return [];
+        const [_, inferId] = match;
+        return {
+            inferId,
+            lastModified: log.LastModified,
+            selfLink: `${HOST}?inferId=${inferId}`,
+        };
+    });
+    chatLogs.sort((a, b) => a.lastModified < b.lastModified ? 1 : -1);
+    res.status(200).json(chatLogs);
 });
 
 app.get('/chatLog/:inferId', async (req, res) => {

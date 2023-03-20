@@ -30,6 +30,8 @@ export const COLOR = {
     yellow: "\x1b[33m",
 };
 
+export const HOST = 'https://synaptek.bio';
+
 export function getExtensionByMimeType(mimeType) {
     const extensions = {
         'audio/webm': '.webm',

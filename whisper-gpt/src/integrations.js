@@ -5,7 +5,7 @@ import FormData from 'form-data';
 import fs from 'fs';
 import { Configuration, OpenAIApi } from 'openai';
 
-import { COLOR, createInferId, getAudioDuration, hashValue, measureTime } from './common.js';
+import { COLOR, createInferId, getAudioDuration, hashValue, HOST, measureTime } from './common.js';
 
 dotenv.config();
 
@@ -113,6 +113,30 @@ export function downloadFileFromS3(bucketName, key) {
     });
 }
 
+export async function listFilesInS3(bucketName) {
+    const params = {
+        Bucket: bucketName,
+    };
+
+    const results = [];
+    let NextContinuationToken;
+    let listResponse;
+    do {
+        listResponse = await new Promise((resolve, reject) => {
+          s3.listObjectsV2({ ...params, NextContinuationToken }, (err, data) => {
+              if (err) {
+                  reject(err);
+              } else {
+                  resolve(data);
+              }
+          });
+        });
+        results.push(...listResponse.Contents);
+        NextContinuationToken = listResponse.NextContinuationToken;
+    } while (listResponse.IsTruncated);
+
+    return results;
+}
 
 export async function transcribeAudioFile(filePath, user) {
     const formData = new FormData();
@@ -184,7 +208,7 @@ export async function* generateChatCompletion(messages, options = {}, user) {
             user,
             generatedImages,
             options,
-            selfLink: `https://synaptek.bio/?inferId=${inferId}`,
+            selfLink: `${HOST}?inferId=${inferId}`,
         }, null, 4),
         'application/json');
 
