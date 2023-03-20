@@ -141,6 +141,7 @@ app.post('/renderMessage', async (req, res) => {
     res.send(JSON.stringify({ html }));
 });
 
+// Chat step 1: send a POST request here with your argument payload
 const chatArgs = new Map();
 app.post('/chatArgs', async (req, res) => {
     const streamId = createStreamId();
@@ -149,6 +150,7 @@ app.post('/chatArgs', async (req, res) => {
     res.status(200).json({ streamId });
 });
 
+// Chat step 2: open an event stream here with your streamId from Step 1
 app.get('/chat/:streamId', async (req, res) => {
     try {
         const { streamId } = req.params;
@@ -167,17 +169,21 @@ app.get('/chat/:streamId', async (req, res) => {
         res.setHeader('Connection', 'keep-alive');
         res.flushHeaders();
 
+        const writeEvent = (eventType, data) => {
+          res.write(`event: ${eventType}\ndata:${JSON.stringify(data)}\n\n`);
+        };
+
         const chatCompletion = generateChatCompletion(messages, options, getUser(req));
         const { value: reply } = await chatCompletion.next();
         // Detect language to assist speech synthesis on frontend
         const language = await detectLanguage(reply);
         // Immediately send the result to the frontend. At this point, the images are not yet
         // rendered.
-        res.write(`event: chatResponse\ndata: ${JSON.stringify({
+        writeEvent('chatResponse', {
             language,
             text: reply,
             html: markdown.render(reply).replaceAll(IMAGE_REGEX, '\n\n<div class="spinner"></div>\n\n'),
-        })}\n\n`);
+        });
 
         // Apply code assistant hooks
         /*
@@ -201,11 +207,11 @@ app.get('/chat/:streamId', async (req, res) => {
 
         const { value: updatedReply } = await chatCompletion.next();
         // Now, send the full result with images to the frontend.
-        res.write(`event: imagesLoaded\ndata: ${JSON.stringify({
+        writeEvent('imagesLoaded', {
             language,
             text: updatedReply,
             html: markdown.render(updatedReply),
-        })}\n\n`);
+        });
     } catch (error) {
         console.error('Error processing chat:', error);
     }
