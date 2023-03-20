@@ -163,14 +163,11 @@ textarea {
     color: black;
 }
 
-#messageList .message .contents {
-    display: block;
-    width: 100%;
-}
-
 #messageList .message .contents,
 #messageList #systemPrompt {
-    text-align: justify
+    display: block;
+    text-align: justify;
+    width: 100%;
 }
 
 #messageContainer {
