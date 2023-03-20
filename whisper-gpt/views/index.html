@@ -44,16 +44,17 @@
 "chatModel": "gpt-3.5-turbo" or "gpt-4"
 "imageModel":
     for Dall-E: "dallE"
-    for Replicate/StableDiffusion: "stableDiffusion_21_fast" or "stableDiffusion_21"
+    for Replicate: "replicate"
     for StableDiffusion: "stableDiffusion"
     for StableDiffusion/Dreambooth: "dreambooth"
+"imageModelId"
+    for Dreambooth, see https://stablediffusionapi.com/models (try "midjourney")
+    for Replicate, "stableDiffusion_21_fast" or "stableDiffusion_21" or "latentDiffusion"
 "imageSize"
     for Dall-E: "256x256" or "512x512" or "1024x1024"
     for Replicate/StableDiffusion: "512x512" or "768x768"
+    for Replicate/LatentDiffusion: ignored, fixed size
     for StableDiffusion incl Dreambooth: arbitrary sizes up to "768x1024" or "1024x768"
-"imageModelId"
-    for StableDiffusion/Dreambooth only, see https://stablediffusionapi.com/models
-    try "midjourney"
                 </pre>
                 <textarea id="options">
 {

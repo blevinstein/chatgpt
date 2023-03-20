@@ -26,9 +26,22 @@ const openai = new OpenAIApi(configuration);
 const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN;
 const REPLICATE_MODELS = {
     // NOTE: Stable diffusion 2.1 models. The faster model gives lower quality outputs.
-    'replicate_stableDiffusion_21_fast': 'db21e45d3f7023abc2a46ee38a23973f6dce16bb082a930b0c49861f96d1e5bf',
-    'replicate_stableDiffusion_21': 'f178fa7a1ae43a9a9af01b833b9d2ecf97b1bcb0acfd2dc5dd04895e042863f1',
+    'stableDiffusion_21_fast': 'db21e45d3f7023abc2a46ee38a23973f6dce16bb082a930b0c49861f96d1e5bf',
+    'stableDiffusion_21': 'f178fa7a1ae43a9a9af01b833b9d2ecf97b1bcb0acfd2dc5dd04895e042863f1',
+    'latentDiffusion': '61935d993257c3926064d388c590d5b9f8efc288d1b2ec77568ed15c9115a346',
 };
+const REPLICATE_UNIT_PRICE = {
+    // Costs per second
+    'cpu': 0.0002,
+    't4': 0.00055,
+    'a100': 0.0023,
+}
+const REPLICATE_COST = {
+    'stableDiffusion_21_fast': REPLICATE_UNIT_PRICE['a100'],
+    'stableDiffusion_21': REPLICATE_UNIT_PRICE['a100'],
+    'latentDiffusion': REPLICATE_UNIT_PRICE['t4'],
+};
+const DEFAULT_REPLICATE_MODEL = 'stableDiffusion_21_fast';
 const REPLICATE_POLL_TIME = 250;
 
 const STABILITY_AI_KEY = process.env.STABILITY_AI_KEY;
@@ -49,15 +62,6 @@ const OPENAI_IMAGE_PRICE = {
 const OPENAI_IMAGE_SIZE = '1024x1024';
 
 const WHISPER_PRICE = 0.006 / 60;
-
-const REPLICATE_PRICE = {
-    // Costs per second
-    'cpu': 0.0002,
-    't4': 0.00055,
-    'a100': 0.0023,
-}
-
-const REPLICATE_STABLE_DIFFUSION_PRICE = REPLICATE_PRICE['a100'];
 const DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE = '768x768';
 
 // Stable diffusion via their API costs $10/mo for 1k requests
@@ -170,8 +174,7 @@ export async function generateInlineImages(message, options = {}, user) {
         case 'dallE':
             generateImage = generateImageWithDallE;
             break;
-        case 'replicate_stableDiffusion_21':
-        case 'replicate_stableDiffusion_21_fast':
+        case 'replicate':
             generateImage = generateImageWithReplicate;
             break;
         case 'stableDiffusion':
@@ -203,12 +206,28 @@ export async function generateInlineImages(message, options = {}, user) {
 // Uses the Replicate API to run the Stable Diffusion model.
 export async function generateImageWithReplicate(description, options, user) {
     try {
+        let input;
+        const modelId = options.imageModelId || DEFAULT_REPLICATE_MODEL;
+        switch (modelId) {
+            case 'stableDiffusion_21':
+            case 'stableDiffusion_21_fast':
+                input = {
+                    prompt: description,
+                    image_dimensions: options.imageSize || DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE,
+                };
+                break;
+            case 'latentDiffusion':
+                input = {
+                    prompt: description,
+                    n_samples: 1,
+                };
+                break;
+            default:
+                throw new Error(`Unexpected imageModelId: ${options.imageModelId}`);
+        }
         const generateInput = {
-            version: REPLICATE_MODELS[options.imageModel || 'stableDiffusion_21_fast'],
-            input: {
-                prompt: description,
-                image_dimensions: options.imageSize || DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE,
-            },
+            version: REPLICATE_MODELS[modelId],
+            input,
         };
 
         const startTime = performance.now();
@@ -249,13 +268,21 @@ export async function generateImageWithReplicate(description, options, user) {
             }
 
             if (predictionStatus === 'succeeded') {
-                downloadUrl = statusResponse.data.output[0];
+                switch (modelId) {
+                    case 'stableDiffusion_21':
+                    case 'stableDiffusion_21_fast':
+                        downloadUrl = statusResponse.data.output[0];
+                        break;
+                    case 'latentDiffusion':
+                        downloadUrl = statusResponse.data.output[0].image;
+                        break;
+                }
             }
         }
 
         const imageResponse = await axios.get(downloadUrl, { responseType: 'arraybuffer' });
         const responseTime = performance.now() - startTime;
-        const cost = statusResponse.data.metrics.predict_time * REPLICATE_STABLE_DIFFUSION_PRICE;
+        const cost = statusResponse.data.metrics.predict_time * REPLICATE_COST[modelId];
 
         // Save the image to disk
         const inferId = createInferId();
@@ -272,7 +299,8 @@ export async function generateImageWithReplicate(description, options, user) {
             `image-${inferId}.json`,
             JSON.stringify({
                 type: 'createImage',
-                model: 'replicate_stableDiffusion',
+                model: 'replicate',
+                modelId,
                 input: generateInput,
                 response: statusResponse.data,
                 cost,
@@ -284,10 +312,10 @@ export async function generateImageWithReplicate(description, options, user) {
             }, null, 4),
             'application/json');
 
-        console.log(`Image generated by Replicate/Stable Diffusion (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(3)}${COLOR.reset})[${inferId}] (${(responseTime/1000).toFixed(2)}s)`);
+        console.log(`Image generated by Replicate (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(3)}${COLOR.reset})[${inferId}] (${(responseTime/1000).toFixed(2)}s)`);
         return imageUrl;
     } catch (error) {
-        console.error('Error generating image with Replicate/Stable Diffusion:', error.message);
+        console.error('Error generating image with Replicate:', error.message);
     }
 }
 
@@ -405,13 +433,13 @@ export async function generateImageWithStableDiffusion(description, options, use
                 }, null, 4),
                 'application/json');
 
-            console.log(`Image generated by Stability Diffusion (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset})  [${inferId}] (${(responseTime / 1000).toFixed(2)}s)`);
+            console.log(`Image generated by Stable Diffusion (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset})  [${inferId}] (${(responseTime / 1000).toFixed(2)}s)`);
             return imageUrl;
         } else {
             console.error('No image URL found in the response:', generateResponse.data);
         }
     } catch (error) {
-        console.error('Error generating image with Stability Diffusion:', error.message);
+        console.error('Error generating image with Stable Diffusion:', error.message);
     }
 }
 
