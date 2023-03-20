@@ -137,11 +137,13 @@ app.post('/renderMessage', async (req, res) => {
 
     let renderedMessage = message;
     if (generatedImages) {
+        // This is a previously-generated chat message, so the generated images are already online.
         for (let { pattern, imageFile } of generatedImages) {
             if (!pattern || !imageFile) continue;
             renderedMessage = renderedMessage.replace(pattern, `![${pattern}](${imageFile})`);
         }
     } else {
+        // Otherwise, generate new images using the appropriate API.
         [ renderedMessage, generatedImages ] = await generateInlineImages(message, options, getUser(req));
     }
 

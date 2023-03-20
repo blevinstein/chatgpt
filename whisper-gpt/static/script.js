@@ -396,6 +396,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               messages = responseData.input.messages.slice(1).concat(
                   responseData.response.choices[0].message);
 
+              // Render all the messages server-side, using the already-generated images.
               await Promise.all(messages.map(async message => {
                   const response = await fetch('/renderMessage', {
                       method: 'POST',
