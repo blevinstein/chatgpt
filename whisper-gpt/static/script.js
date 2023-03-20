@@ -4,64 +4,14 @@ let recordedBlobs;
 let systemPrompt = '';
 let messages = [];
 
-const recordButton = document.getElementById('recordButton');
-recordButton.addEventListener('mousedown', startRecording);
-recordButton.addEventListener('touchstart', startRecording);
-recordButton.addEventListener('mouseup', stopRecordingAndUpload);
-recordButton.addEventListener('mouseleave', stopRecordingAndUpload);
-recordButton.addEventListener('touchend', stopRecordingAndUpload);
-recordButton.addEventListener('touchcancel', stopRecordingAndUpload);
-
-const stopAudioButton = document.getElementById('stopAudioButton');
-stopAudioButton.addEventListener('click', () => window.speechSynthesis.cancel());
-
-const sendTextButton = document.getElementById('sendTextButton');
-sendTextButton.addEventListener('click', sendTextMessage);
-
-const textInput = document.getElementById('textInput');
-textInput.addEventListener('keypress', async (event) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        window.speechSynthesis.cancel();
-        await sendTextMessage();
-    }
-});
-
-const copySystemPromptToClipboard = () => navigator.clipboard.writeText(getSystemPrompt());
-const systemPromptCopyButton = document.getElementById('systemPromptCopyButton');
-systemPromptCopyButton.addEventListener('mouseup', copySystemPromptToClipboard);
-systemPromptCopyButton.addEventListener('touchend', copySystemPromptToClipboard);
+const promptCache = {};
+let selectedPrompts = ['dan', 'image'];
 
 function cloneTemplate(className) {
     const template = document.querySelector(`#templateLibrary > .${className}`);
     if (!template) throw new Error(`Template not found: ${className}`);
     return template.cloneNode(true);
 }
-
-const showOptions = document.getElementById('showOptions');
-showOptions.addEventListener('click', (event) => {
-    event.preventDefault();
-    document.getElementById('optionsReveal').classList.toggle('hidden');
-});
-
-const optionsInput = document.getElementById('options');
-const OPTIONS_STORAGE_KEY = 'whispergpt-options';
-if (window.localStorage.getItem(OPTIONS_STORAGE_KEY)) {
-    optionsInput.value = window.localStorage.getItem(OPTIONS_STORAGE_KEY);
-}
-optionsInput.addEventListener('focusout', () => {
-    try {
-        const options = JSON.parse(document.getElementById('options').value.trim());
-        optionsInput.classList.remove('error');
-        window.localStorage.setItem(OPTIONS_STORAGE_KEY, JSON.stringify(options, null, 4));
-    } catch (error) {
-        optionsInput.classList.add('error');
-        console.error('Failed to parse options:', error);
-    }
-});
-
-const promptCache = {};
-let selectedPrompts = ['dan', 'image'];
 
 async function initMediaRecorder() {
     mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -90,6 +40,16 @@ function startRecording() {
     });
 }
 
+const MESSAGE_DURATION = 6000;
+function showMessageBox(buttonSource, message) {
+    const messageBox = buttonSource.parentElement.querySelector('.messageBox');
+    messageBox.textContent = message;
+    messageBox.classList.add('show');
+    messageBox.addEventListener('mouseup', () => messageBox.classList.remove('show'));
+    messageBox.addEventListener('touchend', () => messageBox.classList.remove('show'));
+    setTimeout(() => messageBox.classList.remove('show'), MESSAGE_DURATION);
+}
+
 function displayMessage(username, message, listItem, html, inferId) {
     messages.push({ role: username, content: message });
 
@@ -105,14 +65,19 @@ function displayMessage(username, message, listItem, html, inferId) {
     }
 
     const copyButton = messageElement.querySelector('.copyButton');
-    const copyMessageToClipboard = () => navigator.clipboard.writeText(message);
+    const copyMessageToClipboard = () => {
+        navigator.clipboard.writeText(message);
+        showMessageBox(copyButton, 'Copied message to clipboard!');
+    };
     copyButton.addEventListener('mouseup', copyMessageToClipboard);
     copyButton.addEventListener('touchend', copyMessageToClipboard);
 
     const shareButton = messageElement.querySelector('.shareButton');
     if (inferId) {
-        const copyLinkToClipboard = () => navigator.clipboard.writeText(
-            `https://synaptek.bio?inferId=${inferId}`)
+        const copyLinkToClipboard = () => {
+            navigator.clipboard.writeText(`https://synaptek.bio?inferId=${inferId}`);
+            showMessageBox(shareButton, 'Copied link to clipboard!');
+        }
         shareButton.addEventListener('mouseup', copyLinkToClipboard);
         shareButton.addEventListener('touchend', copyLinkToClipboard);
     } else {
@@ -303,17 +268,20 @@ async function requestChatResponse() {
                 history.pushState(null, '', window.location.pathname + '?' + searchParams.toString());
             });
             // Second response: chat text is available, but images are not yet loaded (if any)
+            let originalText;
             chatStream.addEventListener('chatResponse', async (event) => {
-                const { text, language, html } = JSON.parse(event.data);
-                console.log(`Chat response successful: ${text}`);
-                displayMessage('assistant', text, chatListItem, html, inferId);
-                await announceMessage(text, language);
+                const { text: originalText, language, html } = JSON.parse(event.data);
+                console.log(`Chat response successful: ${originalText}`);
+                displayMessage('assistant', originalText, chatListItem, html, inferId);
+                await announceMessage(originalText, language);
             });
-            // Third response: images are loaded and the full response is available
+            // Third response: images are loaded and the full response is available, BUT we still
+            // want to use the originalText (without markdown image links) as the underlying text
+            // representation
             chatStream.addEventListener('imagesLoaded', async (event) => {
                 const { text, language, html } = JSON.parse(event.data);
                 console.log(`Images rendered successfully: ${text}`);
-                displayMessage('assistant', text, chatListItem, html, inferId);
+                displayMessage('assistant', originalText, chatListItem, html, inferId);
                 chatStream.close();
                 resolve();
             });
@@ -407,60 +375,117 @@ async function fetchBuildTime() {
     }
 }
 
+async function fetchChatLogs(inferId) {
+    const response = await fetch(`/chatLog/${inferId}`);
+
+    if (response.ok) {
+        // Clear preset prompts, and set the system prompt.
+        selectedPrompts = [];
+        updateSystemPrompt();
+        Array.from(document.getElementsByClassName('selected')).forEach(e => e.classList.remove('selected'));
+        const responseData = await response.json();
+        document.getElementById('systemInput').value = responseData.input.messages[0].content;
+
+        // Load messages, except the system message, including the response message.
+        const loadMessages = responseData.input.messages.slice(1).concat(
+            responseData.response.choices[0].message);
+
+        // Create list items synchronously, to ensure messages are rendered in the correct
+        // order.
+        const listItems = loadMessages.map(() => createListItemWithSpinner());
+
+        // Render all the messages server-side, using the already-generated images.
+        await Promise.all(loadMessages.map(async (message, messageIndex) => {
+            const response = await fetch('/renderMessage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: message.content,
+                    options: getOptions(),
+                    generatedImages: responseData.generatedImages,
+                }),
+            });
+
+            if (response.ok) {
+                const { html } = await response.json();
+                displayMessage(
+                    message.role,
+                    message.content,
+                    listItems[messageIndex],
+                    html,
+                    // Add the inference link on the last message only. We don't have the
+                    // inference IDs for earlier chat responses in the thread.
+                    messageIndex === loadMessages.length - 1 ? inferId : undefined);
+            } else {
+                throw new Error('Failed to render message:', response.statusText);
+            };
+        }));
+    } else {
+        console.error('Error fetching chat log:', error);
+    }
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
+    const recordButton = document.getElementById('recordButton');
+    recordButton.addEventListener('mousedown', startRecording);
+    recordButton.addEventListener('touchstart', startRecording);
+    recordButton.addEventListener('mouseup', stopRecordingAndUpload);
+    recordButton.addEventListener('mouseleave', stopRecordingAndUpload);
+    recordButton.addEventListener('touchend', stopRecordingAndUpload);
+    recordButton.addEventListener('touchcancel', stopRecordingAndUpload);
+
+    const stopAudioButton = document.getElementById('stopAudioButton');
+    stopAudioButton.addEventListener('click', () => window.speechSynthesis.cancel());
+
+    const sendTextButton = document.getElementById('sendTextButton');
+    sendTextButton.addEventListener('click', sendTextMessage);
+
+    const textInput = document.getElementById('textInput');
+    textInput.addEventListener('keypress', async (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            window.speechSynthesis.cancel();
+            await sendTextMessage();
+        }
+    });
+
+    const systemPromptCopyButton = document.getElementById('systemPromptCopyButton');
+    const copySystemPromptToClipboard = () => {
+        navigator.clipboard.writeText(getSystemPrompt());
+        showMessageBox(systemPromptCopyButton, 'Copied prompt to clipboard!');
+    }
+    systemPromptCopyButton.addEventListener('mouseup', copySystemPromptToClipboard);
+    systemPromptCopyButton.addEventListener('touchend', copySystemPromptToClipboard);
+
+    const showOptions = document.getElementById('showOptions');
+    showOptions.addEventListener('click', (event) => {
+        event.preventDefault();
+        document.getElementById('optionsReveal').classList.toggle('hidden');
+    });
+
+    const optionsInput = document.getElementById('options');
+    const OPTIONS_STORAGE_KEY = 'whispergpt-options';
+    if (window.localStorage.getItem(OPTIONS_STORAGE_KEY)) {
+        optionsInput.value = window.localStorage.getItem(OPTIONS_STORAGE_KEY);
+    }
+    optionsInput.addEventListener('focusout', () => {
+        try {
+            const options = JSON.parse(document.getElementById('options').value.trim());
+            optionsInput.classList.remove('error');
+            window.localStorage.setItem(OPTIONS_STORAGE_KEY, JSON.stringify(options, null, 4));
+        } catch (error) {
+            optionsInput.classList.add('error');
+            console.error('Failed to parse options:', error);
+        }
+    });
+
     await fetchPrompts();
+
     await fetchBuildTime();
+
     const queryParams = new Map(new URLSearchParams(window.location.search).entries());
     if (queryParams.has('inferId')) {
-          const inferId = queryParams.get('inferId');
-          const response = await fetch(`/chatLog/${inferId}`);
-
-          if (response.ok) {
-              // Clear preset prompts, and set the system prompt.
-              selectedPrompts = [];
-              updateSystemPrompt();
-              Array.from(document.getElementsByClassName('selected')).forEach(e => e.classList.remove('selected'));
-              const responseData = await response.json();
-              document.getElementById('systemInput').value = responseData.input.messages[0].content;
-
-              // Load messages, except the system message, including the response message.
-              const loadMessages = responseData.input.messages.slice(1).concat(
-                  responseData.response.choices[0].message);
-
-              // Create list items synchronously, to ensure messages are rendered in the correct
-              // order.
-              const listItems = loadMessages.map(() => createListItemWithSpinner());
-
-              // Render all the messages server-side, using the already-generated images.
-              await Promise.all(loadMessages.map(async (message, messageIndex) => {
-                  const response = await fetch('/renderMessage', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                          message: message.content,
-                          options: getOptions(),
-                          generatedImages: responseData.generatedImages,
-                      }),
-                  });
-
-                  if (response.ok) {
-                      const { html } = await response.json();
-                      displayMessage(
-                          message.role,
-                          message.content,
-                          listItems[messageIndex],
-                          html,
-                          // Add the inference link on the last message only. We don't have the
-                          // inference IDs for earlier chat responses in the thread.
-                          messageIndex === loadMessages.length - 1 ? inferId : undefined);
-                  } else {
-                      throw new Error('Failed to render message:', response.statusText);
-                  };
-              }));
-          } else {
-              console.error('Error fetching chat log:', error);
-          }
+        await fetchChatLogs(queryParams.get('inferId'));
     }
 });
 

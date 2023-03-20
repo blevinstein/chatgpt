@@ -35,6 +35,14 @@ button {
     transition: background-color 0.3s, color 0.3s;
 }
 
+button .fa {
+    transition: transform 0.5s;
+}
+
+button:hover .fa {
+    transform: scale(1.2);
+}
+
 a {
     color: #1E88E5;
     text-decoration: none;
@@ -147,7 +155,6 @@ textarea {
 
 #messageList .message button:hover {
     color: black;
-    border: 1px solid black;
 }
 
 #messageList .message .contents {
@@ -164,6 +171,15 @@ textarea {
     flex-direction: column;
     max-width: 1000px;
     margin: 0 auto;
+}
+
+.messageBox {
+    opacity: 0;
+    transition: opacity 0.5s;
+}
+
+.messageBox.show {
+    opacity: 1;
 }
 
 #systemInput {
@@ -219,7 +235,7 @@ textarea {
         transform: scale(1);
     }
     50% {
-        transform: scale(1.1);
+        transform: scale(1.2);
     }
 }
 
