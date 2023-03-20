@@ -185,6 +185,9 @@ app.get('/chat/:streamId', async (req, res) => {
         };
 
         const chatCompletion = generateChatCompletion(messages, options, getUser(req));
+        const { value: inferId } = await chatCompletion.next();
+        writeEvent('setInferId', { inferId });
+
         const { value: reply } = await chatCompletion.next();
         // Detect language to assist speech synthesis on frontend
         const language = await detectLanguage(reply);

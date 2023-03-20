@@ -164,6 +164,7 @@ export async function* generateChatCompletion(messages, options = {}, user) {
     const [responseTime, response] = await measureTime(() => openai.createChatCompletion(input));
     const cost = OPENAI_CHAT_PRICE[model] * response.data.usage.total_tokens;
     const inferId = createInferId();
+    yield inferId;
 
     const reply = response.data.choices[0].message.content;
     console.log(`Assistant reply: ${reply} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset}) [${inferId}] (${(responseTime/1000).toFixed(2)}s)`);

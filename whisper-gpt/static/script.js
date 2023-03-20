@@ -246,7 +246,7 @@ async function requestChatResponse() {
 
     try {
         const customPrompt = document.getElementById('systemInput').value;
-        const fullPrompt = systemPrompt + '\n\n'+ customPrompt;
+        const fullPrompt = (systemPrompt + '\n\n'+ customPrompt).trim();
         const chatArgsResponse = await fetch('/chatArgs', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -270,14 +270,21 @@ async function requestChatResponse() {
                 chatStream.close();
                 reject(error);
             };
-            // First response: chat text is available, but images are not yet loaded (if any)
+            // First response: an inference ID has been chosen, update the URL query param
+            chatStream.addEventListener('setInferId', async (event) => {
+                const { inferId } = JSON.parse(event.data);
+                const searchParams = new URLSearchParams(window.location.search);
+                searchParams.set('inferId', inferId);
+                history.pushState(null, '', window.location.pathname + '?' + searchParams.toString());
+            });
+            // Second response: chat text is available, but images are not yet loaded (if any)
             chatStream.addEventListener('chatResponse', async (event) => {
                 const { text, language, html } = JSON.parse(event.data);
                 console.log(`Chat response successful: ${text}`);
                 displayMessage('assistant', text, chatListItem, html);
                 await announceMessage(text, language);
             });
-            // Second response: images are loaded and the full response is available
+            // Third response: images are loaded and the full response is available
             chatStream.addEventListener('imagesLoaded', async (event) => {
                 const { text, language, html } = JSON.parse(event.data);
                 console.log(`Images rendered successfully: ${text}`);
