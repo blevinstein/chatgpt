@@ -44,6 +44,10 @@ const REPLICATE_COST = {
 const DEFAULT_REPLICATE_MODEL = 'stableDiffusion_21_fast';
 const REPLICATE_POLL_TIME = 250;
 
+const STABLE_DIFFUSION_PROMPT_ENHANCEMENT = {
+    'realistic-vision-v13': (description) => `RAW photo, ${description}, (high detailed skin:1.2), 8k uhd, dslr, soft lighting, high quality, film grain, Fujifilm XT3`,
+};
+
 const STABILITY_AI_KEY = process.env.STABILITY_AI_KEY;
 
 const OPENAI_CHAT_PRICE = {
@@ -382,15 +386,21 @@ export async function generateImageWithStableDiffusion(description, options, use
     const isDreambooth = options.imageModel === 'dreambooth';
 
     try {
+        let prompt;
+        if (isDreambooth && STABLE_DIFFUSION_PROMPT_ENHANCEMENT[options.imageModelId]) {
+            prompt = STABLE_DIFFUSION_PROMPT_ENHANCEMENT[options.imageModelId](description);
+        } else {
+            prompt = description;
+        }
         const generateInput = {
             key: STABILITY_AI_KEY,
             model_id: isDreambooth ? options.imageModelId || DEFAULT_DREAMBOOTH_MODEL_ID : undefined,
-            prompt: description,
+            prompt,
             samples: 1,
             width,
             height,
-            num_inference_steps: 20,
-            guidance_scale: 7.5,
+            num_inference_steps: 50,
+            guidance_scale: 10,
             track_id: inferId,
         };
 
