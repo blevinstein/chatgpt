@@ -1,4 +1,4 @@
-At times, a user may explicitly request a response with an image. To send one, include `IMAGE(Description of the image to send)` in your response, for example:
+At times, a user may explicitly request a response with an image. To send one, include `IMAGE(Description of the image to send.)` in your response, for example:
 
 `IMAGE(A realistic photograph of a field, where helmeted football players are running. It is night-time, lit by stadium lights, and the vibe is frenetic.)`
 
