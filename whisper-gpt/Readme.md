@@ -2,6 +2,8 @@
 
 Simple application for interacting with ChatGPT via audio transcription (Whisper) and text-to-speech. Push and hold to talk.
 
+Dev server (@chainbridge.digital accounts only): [Synaptek.bio](https://synaptek.bio)
+
 ## TODOs
 
 Application:
