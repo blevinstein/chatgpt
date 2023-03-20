@@ -8,8 +8,8 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import path from 'path';
 import sanitize from 'sanitize-filename';
 
-import { detectLanguage, getExtensionByMimeType, remuxAudio } from './common.js';
-import { transcribeAudioFile, generateChatCompletion, generateInlineImages } from './integrations.js';
+import { createStreamId, detectLanguage, getExtensionByMimeType, remuxAudio } from './common.js';
+import { transcribeAudioFile, generateChatCompletion, generateInlineImages, IMAGE_REGEX } from './integrations.js';
 
 const markdown = MarkdownIt();
 
@@ -141,16 +141,43 @@ app.post('/renderMessage', async (req, res) => {
     res.send(JSON.stringify({ html }));
 });
 
-app.post('/chat', async (req, res) => {
+const chatArgs = new Map();
+app.post('/chatArgs', async (req, res) => {
+    const streamId = createStreamId();
+    chatArgs.set(streamId, req.body);
+    console.log(`Chat request prepared [${streamId}]`);
+    res.status(200).json({ streamId });
+});
+
+app.get('/chat/:streamId', async (req, res) => {
     try {
-        const { messages, options = {} } = req.body;
+        const { streamId } = req.params;
+        if (!chatArgs.has(streamId)) {
+            res.status(400).send('Request does not exist or already executed');
+            return;
+        }
+
+        const { messages, options = {} } = chatArgs.get(streamId);
+        chatArgs.delete(streamId);
+        console.log(`Chat stream started [${streamId}]`);
+
+        // Set headers to prepare for streaming server-sent events
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
 
         const chatCompletion = generateChatCompletion(messages, options, getUser(req));
         const { value: reply } = await chatCompletion.next();
-        const { value: updatedReply } = await chatCompletion.next();
-
         // Detect language to assist speech synthesis on frontend
         const language = await detectLanguage(reply);
+        // Immediately send the result to the frontend. At this point, the images are not yet
+        // rendered.
+        res.write(`event: chatResponse\ndata: ${JSON.stringify({
+            language,
+            text: reply,
+            html: markdown.render(reply).replaceAll(IMAGE_REGEX, '\n\n<div class="spinner"></div>\n\n'),
+        })}\n\n`);
 
         // Apply code assistant hooks
         /*
@@ -172,14 +199,15 @@ app.post('/chat', async (req, res) => {
         }
         */
 
-        // Render markdown to HTML for display in the browser
-        const html = markdown.render(updatedReply);
-
-        res.type('json');
-        res.status(200).send(JSON.stringify({ text: reply, language, html }));
+        const { value: updatedReply } = await chatCompletion.next();
+        // Now, send the full result with images to the frontend.
+        res.write(`event: imagesLoaded\ndata: ${JSON.stringify({
+            language,
+            text: updatedReply,
+            html: markdown.render(updatedReply),
+        })}\n\n`);
     } catch (error) {
         console.error('Error processing chat:', error);
-        res.status(500).send('Error processing chat');
     }
 });
 

@@ -3,6 +3,10 @@ import crypto from 'crypto';
 import { detect } from 'langdetect';
 import ffmpeg from 'fluent-ffmpeg';
 
+export function createStreamId() {
+    return crypto.randomBytes(16).toString('hex');
+}
+
 export function createInferId() {
     return crypto.randomBytes(6).toString('hex');
 }

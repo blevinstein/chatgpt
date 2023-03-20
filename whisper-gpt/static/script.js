@@ -87,8 +87,7 @@ function startRecording() {
 function displayMessage(username, message, listItem, html) {
     messages.push({ role: username, content: message });
 
-    const spinner = listItem.querySelector('.spinner');
-    spinner.remove();
+    listItem.innerHTML = '';
 
     const usernameElement = document.createElement('b');
     usernameElement.textContent = `${username}: `;
@@ -251,7 +250,7 @@ async function requestChatResponse() {
     try {
         const customPrompt = document.getElementById('systemInput').value;
         const fullPrompt = systemPrompt + '\n\n'+ customPrompt;
-        const chatResponse = await fetch('/chat', {
+        const chatArgsResponse = await fetch('/chatArgs', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -260,15 +259,36 @@ async function requestChatResponse() {
             }),
         });
 
-        if (chatResponse.ok) {
-            const { text: chat, language, html } = await chatResponse.json();
-            console.log(`Chat response successful: ${chat}`);
-            displayMessage('assistant', chat, chatListItem, html);
-            announceMessage(chat, language);
-        } else {
-            console.error('Error completing chat:', chatResponse.statusText);
+        if (!chatArgsResponse.ok) {
+            console.error('Error setting chat args:', chatArgsResponse.statusText);
             chatListItem.remove();
+            return;
         }
+        const { streamId } = await chatArgsResponse.json();
+
+        const chatStream = new EventSource(`/chat/${streamId}`);
+
+        await new Promise(async (resolve, reject) => {
+            chatStream.onerror = (error) => {
+                chatStream.close();
+                reject(error);
+            };
+            // First response: chat text is available, but images are not yet loaded (if any)
+            chatStream.addEventListener('chatResponse', async (event) => {
+                const { text, language, html } = JSON.parse(event.data);
+                //console.log(`Chat response successful: ${text}`);
+                displayMessage('assistant', text, chatListItem, html);
+                await announceMessage(text, language);
+            });
+            // Second response: images are loaded and the full response is available
+            chatStream.addEventListener('imagesLoaded', async (event) => {
+                const { text, language, html } = JSON.parse(event.data);
+                //console.log(`Images rendered successfully: ${text}`);
+                displayMessage('assistant', text, chatListItem, html);
+                chatStream.close();
+                resolve();
+            });
+        });
     } catch (error) {
         console.error('Error completing chat:', error);
         chatListItem.remove(); // Remove the listItem if the upload fails
