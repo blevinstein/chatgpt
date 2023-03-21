@@ -9,7 +9,15 @@ import path from 'path';
 import sanitize from 'sanitize-filename';
 
 import { createStreamId, detectLanguage, getExtensionByMimeType, HOST, remuxAudio, renderMessage } from './common.js';
-import { downloadFileFromS3, generateChatCompletion, generateInlineImages, IMAGE_REGEX, listFilesInS3, transcribeAudioFile} from './integrations.js';
+import {
+    downloadFileFromS3,
+    generateChatCompletion,
+    generateInlineImages,
+    IMAGE_REGEX,
+    listFilesInS3,
+    transcribeAudioFile,
+    updateImageInChatLog
+} from './integrations.js';
 
 const markdown = MarkdownIt({
     html: true,
@@ -150,7 +158,7 @@ app.post('/renderMessage', async (req, res) => {
 
     // Render markdown to HTML for display in the browser
     const html = markdown.render(renderedMessage);
-    res.json({ html });
+    res.json({ html, generatedImages });
 });
 
 // Chat step 1: send a POST request here with your argument payload
@@ -279,6 +287,13 @@ app.get('/chatLog/:inferId', async (req, res) => {
     const chatLog = JSON.parse(
         (await downloadFileFromS3('whisper-gpt-logs', `chat-${inferId}.json`)).Body.toString());
     res.status(200).json(chatLog);
+});
+
+app.post('/chatLog/:inferId/updateImage', async (req, res) => {
+    const { inferId } = req.params;
+    const { pattern, imageFile } = req.body;
+    await updateImageInChatLog(inferId, pattern, imageFile);
+    res.status(200).json('Done');
 });
 
 app.get('/', function (req, res) {

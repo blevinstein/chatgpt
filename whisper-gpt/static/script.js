@@ -61,6 +61,7 @@ function displayMessage(username, message, listItem, html, inferId) {
     listItem.innerHTML = '';
 
     const messageElement = cloneTemplate('message');
+    messageElement.dataset.inferId = inferId;
     messageElement.querySelector('.username').textContent = `${username}: `;
     if (html) {
       messageElement.querySelector('.contents').innerHTML = html;
@@ -258,12 +259,19 @@ async function reloadImage(event) {
         });
 
         if (!response.ok) throw response.statusText;
-
-        // TODO: Report image generation to server so it can fix chat logs
-
-        const { html } = await response.json();
+        const { html, generatedImages } = await response.json();
         span.innerHTML = html;
         span.classList.remove('imageRetry');
+
+        const inferId = span.closest('.message').dataset.inferId;
+        if (inferId) {
+            // Report image generation to server so it can fix chat logs
+            await fetch(`/chatLog/${inferId}/updateImage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(generatedImages[0]),
+            });
+        }
     } catch (error) {
         console.log('Error retrying image:', error);
         // Restore span

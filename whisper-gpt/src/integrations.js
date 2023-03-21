@@ -215,6 +215,20 @@ export async function* generateChatCompletion(messages, options = {}, user) {
     yield updatedReply;
 }
 
+export async function updateImageInChatLog(inferId, pattern, imageFile) {
+    console.log(`Updating chatLog ${inferId} to add image: ${pattern} => ${imageFile}`);
+    const chatLog = JSON.parse(
+        (await downloadFileFromS3('whisper-gpt-logs', `chat-${inferId}.json`)).Body.toString());
+    const generatedImages = chatLog.generatedImages;
+    const patternIndex = generatedImages.findIndex(({ pattern: p }) => p === pattern);
+    generatedImages[patternIndex].imageFile = imageFile;
+    await uploadFileToS3(
+        'whisper-gpt-logs',
+        `chat-${inferId}.json`,
+        JSON.stringify({ ...chatLog, generatedImages }),
+        'application/json');
+}
+
 // TODO: Add a config option or argument to switch between DALL-E and Stable Diffusion
 export async function generateInlineImages(message, options = {}, user) {
     let generateImage;
