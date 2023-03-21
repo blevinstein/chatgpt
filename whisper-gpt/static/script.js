@@ -52,7 +52,10 @@ function showMessageBox(buttonSource, message) {
 }
 
 function displayMessage(username, message, listItem, html, inferId) {
-    messages.push({ role: username, content: message });
+    if (message) {
+        // TODO: Cleanup. We omit this when overwriting a previously rendered image.
+        messages.push({ role: username, content: message });
+    }
 
     // Clear existing contents
     listItem.innerHTML = '';
@@ -275,20 +278,17 @@ async function requestChatResponse() {
                 history.pushState(null, '', window.location.pathname + '?' + searchParams.toString());
             });
             // Second response: chat text is available, but images are not yet loaded (if any)
-            let originalText;
             chatStream.addEventListener('chatResponse', async (event) => {
-                const { text: originalText, language, html } = JSON.parse(event.data);
-                console.log(`Chat response successful: ${originalText}`);
-                displayMessage('assistant', originalText, chatListItem, html, inferId);
-                await announceMessage(originalText, language);
+                const { text, language, html } = JSON.parse(event.data);
+                console.log(`Chat response successful: ${text}`);
+                displayMessage('assistant', text, chatListItem, html, inferId);
+                await announceMessage(text, language);
             });
-            // Third response: images are loaded and the full response is available, BUT we still
-            // want to use the originalText (without markdown image links) as the underlying text
-            // representation
+            // Third response: images are loaded and the full response is available
             chatStream.addEventListener('imagesLoaded', async (event) => {
                 const { text, language, html } = JSON.parse(event.data);
                 console.log(`Images rendered successfully: ${text}`);
-                displayMessage('assistant', originalText, chatListItem, html, inferId);
+                displayMessage('assistant', null, chatListItem, html, inferId);
                 chatStream.close();
                 resolve();
             });

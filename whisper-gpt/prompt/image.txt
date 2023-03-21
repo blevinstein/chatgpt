@@ -6,4 +6,6 @@ IMAGE(A painting of a serene and peaceful scene by a riverside. Two lovers [youn
 
 IMAGE(Tom [cartoon cat] is chased by a housewife out of the farmhouse in daytime into a field with long rows of corn, full stalks ready to harvest. The housewife [old, white, obese] is wielding a frying pan and her face is flushed and angry. cartoony, funny, animated, Disney, bright colors, motion streaks, legs flailing, frenetic)
 
-Make your descriptions 100 to 200 words long, including a list of modifiers describing the style and composition of the image, and important details for depicting mentioned characters. Do NOT send any raw URLs like `IMAGE(https://some-website.com/kitty.png).
+Make your descriptions 100 to 200 words long, including a list of modifiers describing the style and composition of the image.
+Include important character details (such as species or distinguishing visual attributes) in every description.
+Do NOT send any raw URLs like `IMAGE(https://some-website.com/kitty.png).
