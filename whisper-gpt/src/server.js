@@ -250,6 +250,30 @@ app.get('/chatLogs', async (req, res) => {
     res.status(200).json(chatLogs);
 });
 
+app.get('/imageLogs', async (req, res) => {
+    const logs = await listFilesInS3('whisper-gpt-logs');
+    const inferIdRegex = /image-([0-9a-f]*)\.json/;
+    const imageLogs = logs.flatMap(log => {
+        const match = log.Key.match(inferIdRegex);
+        if (!match) return [];
+        const [_, inferId] = match;
+        return {
+            inferId,
+            lastModified: log.LastModified,
+            selfLink: `${HOST}/imageLogs/${inferId}`,
+        };
+    });
+    imageLogs.sort((a, b) => a.lastModified < b.lastModified ? 1 : -1);
+    res.status(200).json(imageLogs);
+});
+
+app.get('/imageLog/:inferId', async (req, res) => {
+    const { inferId } = req.params;
+    const imageLog = JSON.parse(
+        (await downloadFileFromS3('whisper-gpt-logs', `image-${inferId}.json`)).Body.toString());
+    res.status(200).json(imageLog);
+});
+
 app.get('/chatLog/:inferId', async (req, res) => {
     const { inferId } = req.params;
     const chatLog = JSON.parse(
