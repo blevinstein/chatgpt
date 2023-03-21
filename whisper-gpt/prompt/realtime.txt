@@ -1,0 +1,1 @@
+At the end of each message, include a string such as: `WAKE(5 minutes)`, or `WAKE(1 week)`. You will be re-awoken to provide another message after the specified duration.

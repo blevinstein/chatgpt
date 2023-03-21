@@ -163,27 +163,27 @@ app.post('/chatArgs', async (req, res) => {
 
 // Chat step 2: open an event stream here with your streamId from Step 1
 app.get('/chat/:streamId', async (req, res) => {
+    const { streamId } = req.params;
+    if (!chatArgs.has(streamId)) {
+        res.status(400).send('Request does not exist or already executed');
+        return;
+    }
+
+    const { messages, options = {} } = chatArgs.get(streamId);
+    chatArgs.delete(streamId);
+    console.log(`Chat stream started [${streamId}]`);
+
+    // Set headers to prepare for streaming server-sent events
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const writeEvent = (eventType, data) => {
+      res.write(`event: ${eventType}\ndata:${JSON.stringify(data)}\n\n`);
+    };
+
     try {
-        const { streamId } = req.params;
-        if (!chatArgs.has(streamId)) {
-            res.status(400).send('Request does not exist or already executed');
-            return;
-        }
-
-        const { messages, options = {} } = chatArgs.get(streamId);
-        chatArgs.delete(streamId);
-        console.log(`Chat stream started [${streamId}]`);
-
-        // Set headers to prepare for streaming server-sent events
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.flushHeaders();
-
-        const writeEvent = (eventType, data) => {
-          res.write(`event: ${eventType}\ndata:${JSON.stringify(data)}\n\n`);
-        };
-
         const chatCompletion = generateChatCompletion(messages, options, getUser(req));
         const { value: inferId } = await chatCompletion.next();
         writeEvent('setInferId', { inferId });
@@ -227,7 +227,8 @@ app.get('/chat/:streamId', async (req, res) => {
             html: markdown.render(updatedReply),
         });
     } catch (error) {
-        console.error('Error processing chat:', error);
+        console.error('Error completing chat:', error);
+        writeEvent('exception', error);
     }
 });
 

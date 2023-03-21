@@ -292,6 +292,10 @@ async function requestChatResponse() {
                 chatStream.close();
                 resolve();
             });
+            chatStream.addEventListener('exception', async (event) => {
+                chatStream.close();
+                reject(JSON.parse(event.data));
+            });
         });
     } catch (error) {
         console.error('Error completing chat:', error);
