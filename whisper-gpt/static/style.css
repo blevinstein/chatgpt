@@ -68,6 +68,7 @@ textarea {
     border-left-color: #000;
     border-radius: 50%;
     animation: spinner 1s linear infinite;
+    margin: 1rem;
 }
 
 @keyframes spinner {
@@ -332,4 +333,16 @@ footer {
     display: flex;
     justify-content: center;
     align-items: center;
+}
+
+.imageRetry {
+    display: inline-block;
+    border: 2px dashed red;
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+.imageRetry:hover {
+    border: 2px solid red;
+    opacity: 1;
 }

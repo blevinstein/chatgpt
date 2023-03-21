@@ -91,6 +91,12 @@ function displayMessage(username, message, listItem, html, inferId) {
     // Add alt text to title in server-rendered images, so you can see text by hovering.
     messageElement.querySelectorAll('.contents img').forEach(img => img.title = img.alt);
 
+    // Enable manual image generation retry
+    messageElement.querySelectorAll('.contents .imageRetry').forEach(span => {
+        span.addEventListener('mouseup', reloadImage);
+        span.addEventListener('touchend', reloadImage);
+    });
+
     listItem.appendChild(messageElement);
 }
 
@@ -167,16 +173,12 @@ async function stopRecordingAndUpload() {
                 body: formData,
             });
 
-            if (response.ok) {
-                const transcription = await response.text();
-                console.log(`Audio transcribed successfully: ${transcription}`);
-                // NOTE: We assume that the transcription is plaintext, no HTML special characters,
-                // so it can safely be used as HTML.
-                displayMessage('user', transcription, listItem);
-            } else {
-                console.error('Error uploading audio:', response.statusText);
-                listItem.remove(); // Remove the listItem if the upload fails
-            }
+            if (!response.ok) throw response.statusText;
+            const transcription = await response.text();
+            console.log(`Audio transcribed successfully: ${transcription}`);
+            // NOTE: We assume that the transcription is plaintext, no HTML special characters,
+            // so it can safely be used as HTML.
+            displayMessage('user', transcription, listItem);
         } catch (error) {
             console.error('Error uploading audio:', error);
             listItem.remove(); // Remove the listItem if the upload fails
@@ -220,13 +222,10 @@ async function sendTextMessage() {
                 body: JSON.stringify({ message, options: getOptions() }),
             });
 
-            if (response.ok) {
-                const { html } = await response.json();
-                displayMessage('user', message, listItem, html);
-            } else {
-                console.error('Error rendering message:', response.statusText);
-                listItem.remove();
-            }
+            if (!response.ok) throw response.statusText;
+
+            const { html } = await response.json();
+            displayMessage('user', message, listItem, html);
         } catch (error) {
             console.error('Error rendering message:', error);
             listItem.remove();
@@ -234,6 +233,43 @@ async function sendTextMessage() {
     } else {
         // TODO: Re-enable automatic chat responses
         await requestChatResponse();
+    }
+}
+
+async function reloadImage(event) {
+    const span = event.target;
+    span.removeEventListener('mouseup', reloadImage);
+    span.removeEventListener('touchend', reloadImage);
+
+    const messageFragment = span.textContent;
+
+    // Replace contents with a spinner
+    span.textContent = '';
+    span.appendChild(cloneTemplate('spinner'));
+
+    try {
+        const response = await fetch('/renderMessage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: messageFragment,
+                options: getOptions(),
+            }),
+        });
+
+        if (!response.ok) throw response.statusText;
+
+        // TODO: Report image generation to server so it can fix chat logs
+
+        const { html } = await response.json();
+        span.innerHTML = html;
+        span.classList.remove('imageRetry');
+    } catch (error) {
+        console.log('Error retrying image:', error);
+        // Restore span
+        span.textContent = messageFragment;
+        span.addEventListener('mouseup', reloadImage);
+        span.addEventListener('touchend', reloadImage);
     }
 }
 
@@ -375,12 +411,9 @@ async function fetchBuildTime() {
     try {
         const response = await fetch('/build-time');
 
-        if (response.ok) {
-            const creationTime = await response.text();
-            document.getElementById('buildTime').textContent = creationTime;
-        } else {
-            console.error('Error fetching build time:', response.statusText);
-        }
+        if (!response.ok) throw response.statusText;
+        const creationTime = await response.text();
+        document.getElementById('buildTime').textContent = creationTime;
     } catch (error) {
         console.error('Error fetching build time:', error);
     }
@@ -389,51 +422,50 @@ async function fetchBuildTime() {
 async function fetchChatLogs(inferId) {
     const response = await fetch(`/chatLog/${inferId}`);
 
-    if (response.ok) {
-        // Clear preset prompts, and set the system prompt.
-        selectedPrompts = [];
-        updateSystemPrompt();
-        Array.from(document.getElementsByClassName('selected')).forEach(e => e.classList.remove('selected'));
-        const responseData = await response.json();
-        document.getElementById('systemInput').value = responseData.input.messages[0].content;
-
-        // Load messages, except the system message, including the response message.
-        const loadMessages = responseData.input.messages.slice(1).concat(
-            responseData.response.choices[0].message);
-
-        // Create list items synchronously, to ensure messages are rendered in the correct
-        // order.
-        const listItems = loadMessages.map(() => createListItemWithSpinner());
-
-        // Render all the messages server-side, using the already-generated images.
-        await Promise.all(loadMessages.map(async (message, messageIndex) => {
-            const response = await fetch('/renderMessage', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    message: message.content,
-                    options: getOptions(),
-                    generatedImages: responseData.generatedImages,
-                }),
-            });
-
-            if (response.ok) {
-                const { html } = await response.json();
-                displayMessage(
-                    message.role,
-                    message.content,
-                    listItems[messageIndex],
-                    html,
-                    // Add the inference link on the last message only. We don't have the
-                    // inference IDs for earlier chat responses in the thread.
-                    messageIndex === loadMessages.length - 1 ? inferId : undefined);
-            } else {
-                throw new Error('Failed to render message:', response.statusText);
-            };
-        }));
-    } else {
+    if (!response.ok) {
         console.error('Error fetching chat log:', error);
+        return;
     }
+
+    // Clear preset prompts, and set the system prompt.
+    selectedPrompts = [];
+    updateSystemPrompt();
+    Array.from(document.getElementsByClassName('selected')).forEach(e => e.classList.remove('selected'));
+    const responseData = await response.json();
+    document.getElementById('systemInput').value = responseData.input.messages[0].content;
+
+    // Load messages, except the system message, including the response message.
+    const loadMessages = responseData.input.messages.slice(1).concat(
+        responseData.response.choices[0].message);
+
+    // Create list items synchronously, to ensure messages are rendered in the correct
+    // order.
+    const listItems = loadMessages.map(() => createListItemWithSpinner());
+
+    // Render all the messages server-side, using the already-generated images.
+    await Promise.all(loadMessages.map(async (message, messageIndex) => {
+        const response = await fetch('/renderMessage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: message.content,
+                options: getOptions(),
+                generatedImages: responseData.generatedImages,
+            }),
+        });
+
+        if (!response.ok) throw new Error('Failed to render message:', response.statusText);
+
+        const { html } = await response.json();
+        displayMessage(
+            message.role,
+            message.content,
+            listItems[messageIndex],
+            html,
+            // Add the inference link on the last message only. We don't have the
+            // inference IDs for earlier chat responses in the thread.
+            messageIndex === loadMessages.length - 1 ? inferId : undefined);
+    }));
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
