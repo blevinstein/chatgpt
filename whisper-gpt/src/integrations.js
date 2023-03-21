@@ -48,6 +48,8 @@ const STABLE_DIFFUSION_PROMPT_ENHANCEMENT = {
     'realistic-vision-v13': (description) => `RAW photo, ${description}, (high detailed skin:1.2), 8k uhd, dslr, soft lighting, high quality, film grain, Fujifilm XT3`,
 };
 
+const STABLE_DIFFUSION_NEGATIVE_PROMPT = 'deformed iris, deformed pupils, text, close up, cropped, out of frame, worst quality, low quality, jpeg artifacts, ugly, duplicate, morbid, mutilated, extra fingers, mutated hands, poorly drawn hands, poorly drawn face, mutation, deformed, blurry, dehydrated, bad anatomy, bad proportions, extra limbs, cloned face, disfigured, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck';
+
 const STABILITY_AI_KEY = process.env.STABILITY_AI_KEY;
 
 const OPENAI_CHAT_PRICE = {
@@ -273,6 +275,7 @@ export async function generateImageWithReplicate(description, options, user) {
             case 'stableDiffusion_21_fast':
                 input = {
                     prompt: description,
+                    negative_prompt: STABLE_DIFFUSION_NEGATIVE_PROMPT,
                     image_dimensions: options.imageSize || DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE,
                 };
                 break;
@@ -452,6 +455,7 @@ export async function generateImageWithStableDiffusion(description, options, use
             key: STABILITY_AI_KEY,
             model_id: isDreambooth ? options.imageModelId || DEFAULT_DREAMBOOTH_MODEL_ID : undefined,
             prompt,
+            negative_prompt: STABLE_DIFFUSION_NEGATIVE_PROMPT,
             samples: 1,
             width,
             height,
