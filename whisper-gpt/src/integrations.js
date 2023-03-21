@@ -5,7 +5,7 @@ import FormData from 'form-data';
 import fs from 'fs';
 import { Configuration, OpenAIApi } from 'openai';
 
-import { COLOR, createInferId, getAudioDuration, hashValue, HOST, measureTime } from './common.js';
+import { COLOR, createInferId, getAudioDuration, hashValue, HOST, measureTime, renderMessage } from './common.js';
 
 dotenv.config();
 
@@ -237,17 +237,15 @@ export async function generateInlineImages(message, options = {}, user) {
             break;
     }
 
-    const imagePromises = [];
-    for (let [pattern, description] of Array.from(message.matchAll(IMAGE_REGEX))) {
-        imagePromises.push(generateImage(description, options, user)
-            .then((imageFile) => [pattern, description, imageFile]));
-    }
-    let updatedMessage = message;
-    const generatedImages = [];
-    for (let [pattern, description, imageFile] of await Promise.all(imagePromises)) {
-        updatedMessage = updatedMessage.replace(pattern, `![${description}](${imageFile})`);
-        generatedImages.push({pattern, imageFile});
-    }
+    // Generate images in parallel using Promise.all
+    const imagePromises = Array.from(message.matchAll(IMAGE_REGEX))
+        .map(([pattern, description]) =>
+            generateImage(description, options, user)
+                .then((imageFile) => [ pattern, imageFile ]));
+    const generatedImages = Array.from(await Promise.all(imagePromises)).map(
+        ([pattern, imageFile]) => ({ pattern, imageFile }));
+
+    const updatedMessage = renderMessage(message, generatedImages);
     return [ updatedMessage, generatedImages ]
 }
 

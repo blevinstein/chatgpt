@@ -8,10 +8,14 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import path from 'path';
 import sanitize from 'sanitize-filename';
 
-import { createStreamId, detectLanguage, getExtensionByMimeType, HOST, remuxAudio } from './common.js';
+import { createStreamId, detectLanguage, getExtensionByMimeType, HOST, remuxAudio, renderMessage } from './common.js';
 import { downloadFileFromS3, generateChatCompletion, generateInlineImages, IMAGE_REGEX, listFilesInS3, transcribeAudioFile} from './integrations.js';
 
-const markdown = MarkdownIt();
+const markdown = MarkdownIt({
+    html: true,
+    linkify: false,
+    typographer: false,
+});
 
 const UPLOAD_FOLDER = 'uploads';
 const PROMPT_FOLDER = 'prompt';
@@ -138,10 +142,7 @@ app.post('/renderMessage', async (req, res) => {
     let renderedMessage = message;
     if (generatedImages) {
         // This is a previously-generated chat message, so the generated images are already online.
-        for (let { pattern, imageFile } of generatedImages) {
-            if (!pattern || !imageFile) continue;
-            renderedMessage = renderedMessage.replace(pattern, `![${pattern}](${imageFile})`);
-        }
+        renderedMessage = renderMessage(message, generatedImages);
     } else {
         // Otherwise, generate new images using the appropriate API.
         [ renderedMessage, generatedImages ] = await generateInlineImages(message, options, getUser(req));

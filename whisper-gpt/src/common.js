@@ -81,3 +81,15 @@ export function getAudioDuration(filePath) {
         });
     });
 }
+
+export function renderMessage(message, generatedImages) {
+    let renderedMessage = message;
+    for (let { pattern, imageFile } of generatedImages) {
+        if (imageFile) {
+            renderedMessage = renderedMessage.replace(pattern, `![${pattern}](${imageFile})`);
+        } else {
+            renderedMessage = renderedMessage.replace(pattern, `<span class="imageRetry">${pattern}</span>`);
+        }
+    }
+    return renderedMessage;
+}
