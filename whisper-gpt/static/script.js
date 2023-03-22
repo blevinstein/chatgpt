@@ -20,6 +20,15 @@ const LANG_OVERRIDE = {
   'en': 'en-US',
 };
 
+const OPTIONS_STORAGE_KEY = 'whispergpt-options';
+const DEFAULT_OPTIONS = {
+    chatModel: "gpt-3.5-turbo",
+    voiceGender: "Female",
+    imageModel: "stableDiffusion",
+    imageSize: "512x512",
+    imageModelId: "midjourney"
+};
+
 // Convenience function for using templates hidden in HTML page
 function cloneTemplate(className) {
     const template = document.querySelector(`#templateLibrary > .${className}`);
@@ -527,15 +536,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     systemPromptCopyButton.addEventListener('touchend', copySystemPromptToClipboard);
 
     const showOptions = document.getElementById('showOptions');
-    showOptions.addEventListener('click', (event) => {
+    const revealOptions = (event) => {
         event.preventDefault();
         document.getElementById('optionsReveal').classList.toggle('hidden');
-    });
+    };
+    showOptions.addEventListener('mouseup', revealOptions);
+    showOptions.addEventListener('touchend', revealOptions);
 
     const optionsInput = document.getElementById('options');
-    const OPTIONS_STORAGE_KEY = 'whispergpt-options';
     if (window.localStorage.getItem(OPTIONS_STORAGE_KEY)) {
         optionsInput.value = window.localStorage.getItem(OPTIONS_STORAGE_KEY);
+    } else {
+        optionsInput.value = JSON.stringify(DEFAULT_OPTIONS, null, 4);
     }
     optionsInput.addEventListener('focusout', () => {
         try {
@@ -547,6 +559,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.error('Failed to parse options:', error);
         }
     });
+
+    const resetOptionsButton = document.getElementById('resetOptionsButton');
+    const resetOptions = (event) => {
+        optionsInput.value = JSON.stringify(DEFAULT_OPTIONS, null, 4);
+    };
+    resetOptionsButton.addEventListener('mouseup', resetOptions);
+    resetOptionsButton.addEventListener('touchend', resetOptions);
 
     await fetchPrompts();
 
