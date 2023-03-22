@@ -50,7 +50,7 @@ const STABLE_DIFFUSION_PROMPT_ENHANCEMENT = {
     'realistic-vision-v13': (description) => `RAW photo, ${description}, (high detailed skin:1.2), 8k uhd, dslr, soft lighting, high quality, film grain, Fujifilm XT3`,
 };
 
-const STABLE_DIFFUSION_NEGATIVE_PROMPT = 'deformed iris, deformed pupils, text, close up, cropped, out of frame, worst quality, low quality, jpeg artifacts, ugly, duplicate, morbid, mutilated, extra fingers, mutated hands, poorly drawn hands, poorly drawn face, mutation, deformed, blurry, dehydrated, bad anatomy, bad proportions, extra limbs, cloned face, disfigured, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck';
+const STABLE_DIFFUSION_NEGATIVE_PROMPT = 'deformed iris, deformed pupils, text, close up, cropped, out of frame, worst quality, low quality, jpeg artifacts, ugly, duplicate, morbid, mutilated, extra fingers, mutated hands, poorly drawn hands, poorly drawn face, mutation, deformed, blurry, dehydrated, bad anatomy, bad proportions, extra limbs, cloned face, disfigured, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers';
 
 const STABILITY_AI_KEY = process.env.STABILITY_AI_KEY;
 
