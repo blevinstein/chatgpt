@@ -6,7 +6,12 @@
 
 body {
     font-family: Arial, sans-serif;
+    margin: 0 auto;
     padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }
 
 h1 {
@@ -20,7 +25,7 @@ div {
     display: flex;
     justify-content: center;
     align-items: center;
-    text-align: center;
+    /*text-align: center;*/
 }
 
 button {
@@ -175,10 +180,9 @@ textarea {
     width: 100%;
 }
 
-#messageContainer {
+#chatContainer {
     flex-direction: column;
     max-width: 1000px;
-    margin: 0 auto;
 }
 
 .messageBox {
@@ -224,29 +228,6 @@ textarea {
 
 #textControls {
     flex-grow: 1;
-}
-
-@media (max-width: 600px) {
-    #controlBar {
-        flex-direction: column;
-    }
-
-    #micControls,
-    #textControls {
-        width: 100%;
-    }
-
-    #recordButton,
-    #stopAudioButton {
-        flex-grow: 1;
-    }
-
-    h1 {
-        padding: 1rem;
-        color: #1E88E5;
-        font-size: 2rem;
-        -webkit-text-stroke: 0;
-    }
 }
 
 @keyframes pulse {
@@ -387,4 +368,54 @@ footer {
 #galleryContainer .imageCard img {
     border: 3px solid black;
     max-width: 100%;
+}
+
+#imageContainer {
+    padding: 1rem;
+}
+
+.imagePlaceholder {
+    min-height: 12rem;
+    min-width: 12rem;
+    border-radius: 1rem;
+    border: 2px dashed grey;
+    font-size: 4rem;
+    color: #04bd57;
+    cursor: pointer;
+}
+
+.imagePlaceholder i {
+    transition: transform 0.5s, color 0.5s;
+}
+
+.imagePlaceholder:hover i {
+    color: #04e067;
+    transform: scale(1.2);
+}
+
+@media (max-width: 600px) {
+    #controlBar {
+        flex-direction: column;
+    }
+
+    #micControls,
+    #textControls {
+        width: 100%;
+    }
+
+    #recordButton,
+    #stopAudioButton {
+        flex-grow: 1;
+    }
+
+    h1 {
+        padding: 1rem;
+        color: #1E88E5;
+        font-size: 2rem;
+        -webkit-text-stroke: 0;
+    }
+
+    #pageContainer {
+        flex-direction: column;
+    }
 }

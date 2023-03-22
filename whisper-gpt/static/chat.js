@@ -1,5 +1,5 @@
 // Internal representation of chat state
-let selectedPrompts = ['dan', 'image'];
+let selectedPrompts = [];
 let systemPrompt = '';
 let messages = [];
 let messageImages = [];
@@ -239,7 +239,10 @@ async function requestChatResponse(systemPrompt, messages) {
 }
 
 // Fetch the list of available prompt presets from the server
-async function fetchPrompts() {
+async function fetchPrompts(initialPrompts = [], customPrompt = '') {
+    selectedPrompts = initialPrompts;
+    document.getElementById('systemInput').value = customPrompt;
+
     try {
         const response = await fetch('/prompts');
         const prompts = await response.json();
@@ -365,4 +368,30 @@ async function fetchChatLogs(inferId) {
             // inference IDs for earlier chat responses in the thread.
             messageIndex === messages.length - 1 ? inferId : undefined);
     }));
+}
+
+function registerChatControls() {
+    // Chat button:
+    const sendTextButton = document.getElementById('sendTextButton');
+    // Text input:
+    sendTextButton.addEventListener('mouseup', sendTextMessage);
+    sendTextButton.addEventListener('touchend', sendTextMessage);
+    const textInput = document.getElementById('textInput');
+    textInput.addEventListener('keypress', async (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            stopSpeaking();
+            await sendTextMessage();
+        }
+    });
+}
+
+function registerSystemPromptControls() {
+    const systemPromptCopyButton = document.getElementById('systemPromptCopyButton');
+    const copySystemPromptToClipboard = () => {
+        navigator.clipboard.writeText(getSystemPrompt());
+        showMessageBox(systemPromptCopyButton, 'Copied prompt to clipboard!');
+    }
+    systemPromptCopyButton.addEventListener('mouseup', copySystemPromptToClipboard);
+    systemPromptCopyButton.addEventListener('touchend', copySystemPromptToClipboard);
 }

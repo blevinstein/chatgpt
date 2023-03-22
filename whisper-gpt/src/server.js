@@ -358,6 +358,10 @@ async function main() {
         res.sendFile('views/gallery.html', { root: process.cwd() });
     });
 
+    app.get('/image', function (req, res) {
+        res.sendFile('views/image.html', { root: process.cwd() });
+    });
+
     app.get('/logout', function (req, res) {
         req.session.user = null;
         res.redirect('/');
