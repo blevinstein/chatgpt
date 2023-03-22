@@ -537,6 +537,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const revealOptions = (event) => {
         event.preventDefault();
         document.getElementById('optionsReveal').classList.toggle('hidden');
+        setTimeout(() => showOptions.scrollIntoView(), 10);
     };
     showOptions.addEventListener('mouseup', revealOptions);
     showOptions.addEventListener('touchend', revealOptions);
