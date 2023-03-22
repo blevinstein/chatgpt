@@ -14,6 +14,7 @@ import {
     generateChatCompletion,
     generateInlineImages,
     getVoices,
+    IMAGE_HOST,
     IMAGE_REGEX,
     listFilesInS3,
     synthesizeSpeech,
@@ -319,7 +320,8 @@ async function main() {
             return {
                 inferId,
                 lastModified: log.LastModified,
-                selfLink: `${HOST}/imageLog/${inferId}`,
+                logLink: `${HOST}/imageLog/${inferId}`,
+                imageLink: `${IMAGE_HOST}/${inferId}.png`,
             };
         });
         imageLogs.sort((a, b) => a.lastModified < b.lastModified ? 1 : -1);

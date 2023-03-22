@@ -81,6 +81,10 @@ const DEFAULT_CHAT_MODEL = 'gpt-3.5-turbo';
 
 const DEFAULT_DREAMBOOTH_MODEL_ID = 'midjourney';
 
+const LOGS_BUCKET = 'whisper-gpt-logs';
+const IMAGE_BUCKET = 'whisper-gpt-generated';
+export const IMAGE_HOST = `https://${IMAGE_BUCKET}.s3.amazonaws.com`;
+
 export function uploadFileToS3(bucketName, key, data, contentType) {
     const params = {
         Bucket: bucketName,
@@ -163,7 +167,7 @@ export async function transcribeAudioFile(filePath, user) {
         ));
         const inferId = createInferId();
         await uploadFileToS3(
-            'whisper-gpt-logs',
+            LOGS_BUCKET,
             `transcribe-${inferId}.json`,
             JSON.stringify({
                 type: 'transcribe',
@@ -234,7 +238,7 @@ export async function* generateChatCompletion(messages, options = {}, user) {
 
     const [ updatedReply, generatedImages ] = await generateInlineImages(reply, options, user);
     await uploadFileToS3(
-        'whisper-gpt-logs',
+        LOGS_BUCKET,
         `chat-${inferId}.json`,
         JSON.stringify({
             type: 'createChatCompletion',
@@ -255,12 +259,12 @@ export async function* generateChatCompletion(messages, options = {}, user) {
 export async function updateImageInChatLog(inferId, pattern, imageFile) {
     console.log(`Updating chatLog ${inferId} to add image: ${pattern} => ${imageFile}`);
     const chatLog = JSON.parse(
-        (await downloadFileFromS3('whisper-gpt-logs', `chat-${inferId}.json`)).Body.toString());
+        (await downloadFileFromS3(LOGS_BUCKET, `chat-${inferId}.json`)).Body.toString());
     const generatedImages = chatLog.generatedImages;
     const patternIndex = generatedImages.findIndex(({ pattern: p }) => p === pattern);
     generatedImages[patternIndex].imageFile = imageFile;
     await uploadFileToS3(
-        'whisper-gpt-logs',
+        LOGS_BUCKET,
         `chat-${inferId}.json`,
         JSON.stringify({ ...chatLog, generatedImages }),
         'application/json');
@@ -385,15 +389,15 @@ export async function generateImageWithReplicate(description, options, user) {
         // Save the image to disk
         const inferId = createInferId();
         const imageFile = `${inferId}.png`;
-        const imageUrl = `https://whisper-gpt-generated.s3.amazonaws.com/${imageFile}`;
+        const imageUrl = `${IMAGE_HOST}/${imageFile}`;
 
         await uploadFileToS3(
-            'whisper-gpt-generated',
+            IMAGE_BUCKET,
             imageFile,
             Buffer.from(imageResponse.data),
             'image/png');
         await uploadFileToS3(
-            'whisper-gpt-logs',
+            LOGS_BUCKET,
             `image-${inferId}.json`,
             JSON.stringify({
                 type: 'createImage',
@@ -439,16 +443,16 @@ export async function generateImageWithDallE(description, options, user) {
 
             const inferId = createInferId();
             const imageFile = `${inferId}.png`;
-            const imageUrl = `https://whisper-gpt-generated.s3.amazonaws.com/${imageFile}`;
+            const imageUrl = `${IMAGE_HOST}/${imageFile}`;
             const cost = OPENAI_IMAGE_PRICE[imageSize];
 
             await uploadFileToS3(
-                'whisper-gpt-generated',
+                IMAGE_BUCKET,
                 imageFile,
                 Buffer.from(imageResponse.data),
                 'image/png');
             await uploadFileToS3(
-                'whisper-gpt-logs',
+                LOGS_BUCKET,
                 `image-${inferId}.json`,
                 JSON.stringify({
                     type: 'createImage',
@@ -514,16 +518,16 @@ export async function generateImageWithStableDiffusion(description, options, use
             const responseTime = performance.now() - startTime;
 
             const imageFile = `${inferId}.png`;
-            const imageUrl = `https://whisper-gpt-generated.s3.amazonaws.com/${imageFile}`;
+            const imageUrl = `${IMAGE_HOST}/${imageFile}`;
             const cost = STABLE_DIFFUSION_PRICE;
 
             await uploadFileToS3(
-                'whisper-gpt-generated',
+                IMAGE_BUCKET,
                 imageFile,
                 Buffer.from(imageResponse.data),
                 'image/png');
             await uploadFileToS3(
-                'whisper-gpt-logs',
+                LOGS_BUCKET,
                 `image-${inferId}.json`,
                 JSON.stringify({
                     type: 'createImage',
