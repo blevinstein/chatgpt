@@ -319,7 +319,7 @@ async function main() {
             return {
                 inferId,
                 lastModified: log.LastModified,
-                selfLink: `${HOST}/imageLogs/${inferId}`,
+                selfLink: `${HOST}/imageLog/${inferId}`,
             };
         });
         imageLogs.sort((a, b) => a.lastModified < b.lastModified ? 1 : -1);
