@@ -1,13 +1,26 @@
+// For recording audio
 let mediaStream;
 let mediaRecorder;
 let recordedBlobs;
+
+// For playing audio
+let audioSource;
+let stopSpeaking = () => {};
+
+// Internal representation of chat state
+let selectedPrompts = ['dan', 'image'];
 let systemPrompt = '';
 let messages = [];
-let speechCallback;
 
+// Cache of text prompts fetched from the server
 const promptCache = {};
-let selectedPrompts = ['dan', 'image'];
 
+const LANG_OVERRIDE = {
+  'es': 'es-US',
+  'en': 'en-US',
+};
+
+// Convenience function for using templates hidden in HTML page
 function cloneTemplate(className) {
     const template = document.querySelector(`#templateLibrary > .${className}`);
     if (!template) throw new Error(`Template not found: ${className}`);
@@ -26,8 +39,12 @@ async function initMediaRecorder() {
     };
 }
 
+function resetRecordButton() {
+    recordButton.classList.remove('recording');
+}
+
 function startRecording() {
-    if (speechCallback) { speechCallback(); }
+    stopSpeaking();
 
     if (mediaRecorder && mediaRecorder.state === 'recording') return;
 
@@ -41,6 +58,46 @@ function startRecording() {
     });
 }
 
+async function stopRecordingAndUpload() {
+    if (!mediaRecorder || mediaRecorder.state == 'inactive') return;
+
+    resetRecordButton();
+
+    mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(recordedBlobs, { type: 'audio/webm' });
+        const formData = new FormData();
+
+        formData.append('audio', audioBlob);
+        formData.append('mimeType', 'audio/webm');
+
+        const listItem = createListItemWithSpinner();
+
+        try {
+            const response = await fetch('/transcribe', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) throw response.statusText;
+            const transcription = await response.text();
+            console.log(`Audio transcribed successfully: ${transcription}`);
+            // NOTE: We assume that the transcription is plaintext, no HTML special characters,
+            // so it can safely be used as HTML.
+            addChatMessage('user', transcription, listItem);
+        } catch (error) {
+            console.error('Error uploading audio:', error);
+            listItem.remove(); // Remove the listItem if the upload fails
+            return;
+        }
+
+        // TODO: Re-enable automatic chat responses
+        // await requestChatResponse();
+    };
+
+    mediaRecorder.stop();
+    mediaStream.getTracks().forEach(t => t.stop());
+}
+
 const MESSAGE_DURATION = 6000;
 function showMessageBox(buttonSource, message) {
     const messageBox = buttonSource.parentElement.querySelector('.messageBox');
@@ -51,7 +108,7 @@ function showMessageBox(buttonSource, message) {
     setTimeout(() => messageBox.classList.remove('show'), MESSAGE_DURATION);
 }
 
-function displayMessage(username, message, listItem, html, inferId) {
+function addChatMessage(username, message, listItem, html, inferId) {
     if (message) {
         // TODO: Cleanup. We omit this when overwriting a previously rendered image.
         messages.push({ role: username, content: message });
@@ -101,97 +158,48 @@ function displayMessage(username, message, listItem, html, inferId) {
     listItem.appendChild(messageElement);
 }
 
-
 function createListItemWithSpinner() {
     const listItem = cloneTemplate('listItem');
     document.getElementById('messageList').appendChild(listItem);
     return listItem;
 }
 
-let voices;
-const LOAD_TIME = 100;
-async function loadVoices() {
-  voices = await window.speechSynthesis.getVoices();
-  if (voices.length) {
-    console.log(`Loaded ${voices.length} voices`);
-  } else {
-    console.log('Voices are not yet ready');
-    setTimeout(loadVoices, LOAD_TIME);
-  }
+function stopTalking() {
+    if (audioSource) {
+        audioSource.stop();
+    }
 }
-setTimeout(loadVoices, 0);
 
-const LANG_OVERRIDE = {
-  'es': 'es-US',
-  'en': 'en-US',
-};
 async function announceMessage(message, language) {
-    return new Promise((resolve) => {
-        console.log(`Creating a speech utterance in language ${language}`);
-        const utterance = new SpeechSynthesisUtterance(message);
+    try {
+        const response = await fetch('/speak', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                text: message,
+                language,
+                voice: getOptions().voice
+            }),
+        });
 
-        const chosenVoice = voices.find(v => v.lang.startsWith(LANG_OVERRIDE[language] || language));
-        if (chosenVoice) {
-          utterance.voice = chosenVoice;
-        } else {
-          console.error(`No voice found for language ${language}`);
-        }
-
-        // Adjust the rate, pitch, and volume
-        utterance.rate = 1; // Default is 1, range is 0.1 to 10
-        utterance.pitch = 1; // Default is 1, range is 0 to 2
-        utterance.volume = 1; // Default is 1, range is 0 to 1
-
-        utterance.onend = () => resolve();
-
-        document.getElementById('stopAudioButton').classList.add('playing');
-        speechCallback = () => {
+        stopSpeaking = () => {
             document.getElementById('stopAudioButton').classList.remove('playing');
-            window.speechSynthesis.cancel();
-        }
-        utterance.addEventListener('end', speechCallback);
-        window.speechSynthesis.speak(utterance);
-    });
-}
+            audioSource.stop();
+        };
 
-async function stopRecordingAndUpload() {
-    if (!mediaRecorder || mediaRecorder.state == 'inactive') return;
+        if (!response.ok) throw response.statusText;
 
-    resetRecordButton();
-
-    mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(recordedBlobs, { type: 'audio/webm' });
-        const formData = new FormData();
-
-        formData.append('audio', audioBlob);
-        formData.append('mimeType', 'audio/webm');
-
-        const listItem = createListItemWithSpinner();
-
-        try {
-            const response = await fetch('/transcribe', {
-                method: 'POST',
-                body: formData,
-            });
-
-            if (!response.ok) throw response.statusText;
-            const transcription = await response.text();
-            console.log(`Audio transcribed successfully: ${transcription}`);
-            // NOTE: We assume that the transcription is plaintext, no HTML special characters,
-            // so it can safely be used as HTML.
-            displayMessage('user', transcription, listItem);
-        } catch (error) {
-            console.error('Error uploading audio:', error);
-            listItem.remove(); // Remove the listItem if the upload fails
-            return;
-        }
-
-        // TODO: Re-enable automatic chat responses
-        // await requestChatResponse();
-    };
-
-    mediaRecorder.stop();
-    mediaStream.getTracks().forEach(t => t.stop());
+        const audioContext = new AudioContext();
+        const audioBuffer = await audioContext.decodeAudioData(await response.arrayBuffer());
+        audioSource = audioContext.createBufferSource();
+        audioSource.buffer = audioBuffer;
+        audioSource.connect(audioContext.destination);
+        audioSource.addEventListener('ended', stopSpeaking);
+        audioSource.start();
+        document.getElementById('stopAudioButton').classList.add('playing');
+    } catch (error) {
+        console.error('Failed to speak:', error);
+    }
 }
 
 // Crude method of escaping user input which might have HTML-unsafe characters
@@ -201,6 +209,7 @@ function escapeHTML(unsafeText) {
     return div.innerHTML;
 }
 
+// Fetch options JSON stored in the HTML page
 function getOptions() {
     try {
         return JSON.parse(document.getElementById('options').value.trim());
@@ -210,8 +219,10 @@ function getOptions() {
     }
 }
 
+// Add a user-provided text message to the chat
 async function sendTextMessage() {
     const message = textInput.value.trim();
+
     textInput.value = '';
     if (message.length > 0) {
         try {
@@ -226,7 +237,7 @@ async function sendTextMessage() {
             if (!response.ok) throw response.statusText;
 
             const { html } = await response.json();
-            displayMessage('user', message, listItem, html);
+            addChatMessage('user', message, listItem, html);
         } catch (error) {
             console.error('Error rendering message:', error);
             listItem.remove();
@@ -237,6 +248,7 @@ async function sendTextMessage() {
     }
 }
 
+// Request re-rendering of a particular image in a chat response.
 async function reloadImage(event) {
     const span = event.target;
     span.removeEventListener('mouseup', reloadImage);
@@ -281,11 +293,13 @@ async function reloadImage(event) {
     }
 }
 
+// Get the full system prompt, including presets and custom input
 function getSystemPrompt() {
     const customPrompt = document.getElementById('systemInput').value;
     return (systemPrompt + '\n\n'+ customPrompt).trim();
 }
 
+// Request a chat response from the chatbot API
 async function requestChatResponse() {
     const chatListItem = createListItemWithSpinner();
 
@@ -325,14 +339,14 @@ async function requestChatResponse() {
             chatStream.addEventListener('chatResponse', async (event) => {
                 const { text, language, html } = JSON.parse(event.data);
                 console.log(`Chat response successful: ${text}`);
-                displayMessage('assistant', text, chatListItem, html, inferId);
+                addChatMessage('assistant', text, chatListItem, html, inferId);
                 await announceMessage(text, language);
             });
             // Third response: images are loaded and the full response is available
             chatStream.addEventListener('imagesLoaded', async (event) => {
                 const { text, language, html } = JSON.parse(event.data);
                 console.log(`Images rendered successfully: ${text}`);
-                displayMessage('assistant', null, chatListItem, html, inferId);
+                addChatMessage('assistant', null, chatListItem, html, inferId);
                 chatStream.close();
                 resolve();
             });
@@ -348,10 +362,7 @@ async function requestChatResponse() {
     }
 }
 
-function resetRecordButton() {
-    recordButton.classList.remove('recording');
-}
-
+// Fetch the list of available prompt presets from the server
 async function fetchPrompts() {
     try {
         const response = await fetch('/prompts');
@@ -386,6 +397,7 @@ function updateSystemPrompt() {
         selectedPrompts.map(p => promptCache[p].html).join('<br/><br/>');
 }
 
+// Fetch a prompt from the server
 async function getPromptData(promptName) {
     try {
         const response = await fetch(`/prompt/${promptName}`);
@@ -397,6 +409,7 @@ async function getPromptData(promptName) {
     }
 }
 
+// React to toggling of a preset prompt button
 async function togglePromptButton(event) {
     event.preventDefault();
     const button = event.target;
@@ -412,6 +425,7 @@ async function togglePromptButton(event) {
     updateSystemPrompt();
 }
 
+// Get the build time from the server
 async function fetchBuildTime() {
     // Build time is not available when running locally
     if (window.location.hostname == 'localhost') return;
@@ -427,6 +441,7 @@ async function fetchBuildTime() {
     }
 }
 
+// Get chat logs from the server, and update page state to match
 async function fetchChatLogs(inferId) {
     const response = await fetch(`/chatLog/${inferId}`);
 
@@ -465,7 +480,7 @@ async function fetchChatLogs(inferId) {
         if (!response.ok) throw new Error('Failed to render message:', response.statusText);
 
         const { html } = await response.json();
-        displayMessage(
+        addChatMessage(
             message.role,
             message.content,
             listItems[messageIndex],
@@ -486,18 +501,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     recordButton.addEventListener('touchcancel', stopRecordingAndUpload);
 
     const stopAudioButton = document.getElementById('stopAudioButton');
-    stopAudioButton.addEventListener('click', () => {
-        if (speechCallback) { speechCallback(); }
-    });
+    stopAudioButton.addEventListener('mouseup', () => stopSpeaking());
+    stopAudioButton.addEventListener('touchend', () => stopSpeaking());
 
     const sendTextButton = document.getElementById('sendTextButton');
-    sendTextButton.addEventListener('click', sendTextMessage);
+    sendTextButton.addEventListener('mouseup', sendTextMessage);
+    sendTextButton.addEventListener('touchend', sendTextMessage);
 
     const textInput = document.getElementById('textInput');
     textInput.addEventListener('keypress', async (event) => {
         if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
-            if (speechCallback) { speechCallback(); }
+            stopSpeaking();
             await sendTextMessage();
         }
     });

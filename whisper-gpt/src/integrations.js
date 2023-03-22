@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import FormData from 'form-data';
 import fs from 'fs';
 import { Configuration, OpenAIApi } from 'openai';
+import path from 'path';
 
 import { COLOR, createInferId, getAudioDuration, hashValue, HOST, measureTime, renderMessage } from './common.js';
 
@@ -16,6 +17,7 @@ AWS.config.update({
 });
 
 const s3 = new AWS.S3();
+const polly = new AWS.Polly();
 
 const OPENAI_KEY = process.env.OPENAI_KEY;
 const configuration = new Configuration({
@@ -178,6 +180,27 @@ export async function transcribeAudioFile(filePath, user) {
         console.error('Error transcribing audio:', error);
         return null;
     }
+}
+
+const DEFAULT_VOICE_ID = 'Matthew';
+export async function synthesizeSpeech(text, language, voice) {
+    // TODO: add SSML when appropriate to render in correct language
+    const params = {
+        OutputFormat: "mp3",
+        Text: text,
+        VoiceId: voice || DEFAULT_VOICE_ID,
+        Engine: 'neural',
+    };
+
+    return await new Promise((resolve, reject) => {
+        polly.synthesizeSpeech(params, (err, data) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(data);
+            }
+        });
+    });
 }
 
 export async function* generateChatCompletion(messages, options = {}, user) {

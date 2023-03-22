@@ -15,6 +15,7 @@ import {
     generateInlineImages,
     IMAGE_REGEX,
     listFilesInS3,
+    synthesizeSpeech,
     transcribeAudioFile,
     updateImageInChatLog
 } from './integrations.js';
@@ -27,7 +28,6 @@ const markdown = MarkdownIt({
 
 const UPLOAD_FOLDER = 'uploads';
 const PROMPT_FOLDER = 'prompt';
-
 if (!fs.existsSync(UPLOAD_FOLDER)) {
     fs.mkdirSync(UPLOAD_FOLDER);
 }
@@ -140,6 +140,24 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
         }
     } else {
         res.status(400).send('Upload failed');
+    }
+});
+
+app.post('/speak', async (req, res) => {
+    const { text, language, voice } = req.body;
+
+    if (!text) {
+        res.status(400).send('Missing input text');
+        return;
+    }
+
+    try {
+        const { AudioStream, ContentType } = await synthesizeSpeech(text, language, voice);
+        res.type(ContentType);
+        res.status(200).send(AudioStream);
+    } catch (error) {
+        console.log('Failed to speak:', error);
+        res.status(500).send('Failed to speak');
     }
 });
 
