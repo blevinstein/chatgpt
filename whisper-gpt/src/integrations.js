@@ -184,10 +184,10 @@ export async function transcribeAudioFile(filePath, user) {
 
 const DEFAULT_VOICE_ID = 'Matthew';
 export async function synthesizeSpeech(text, language, voice) {
-    // TODO: add SSML when appropriate to render in correct language
     const params = {
         OutputFormat: "mp3",
-        Text: text,
+        Text: language ? `<lang xml:lang="${language}">${text}</lang>` : text,
+        TextType: 'ssml',
         VoiceId: voice || DEFAULT_VOICE_ID,
         Engine: 'neural',
     };

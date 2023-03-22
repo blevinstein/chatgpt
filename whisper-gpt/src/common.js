@@ -32,6 +32,45 @@ export const COLOR = {
 
 export const HOST = 'https://synaptek.bio';
 
+const LANGUAGE_TO_COMMON_COUNTRY = {
+  'zh': 'zh-CN', // Chinese (Mandarin)
+  'es': 'es-ES', // Spanish
+  'en': 'en-US', // English
+  'hi': 'hi-IN', // Hindi
+  'ar': 'ar-SA', // Arabic
+  'pt': 'pt-BR', // Portuguese
+  'bn': 'bn-IN', // Bengali
+  'ru': 'ru-RU', // Russian
+  'ja': 'ja-JP', // Japanese
+  'pa': 'pa-IN', // Punjabi
+  'de': 'de-DE', // German
+  'jv': 'jv-ID', // Javanese
+  'ko': 'ko-KR', // Korean
+  'te': 'te-IN', // Telugu
+  'mr': 'mr-IN', // Marathi
+  'fr': 'fr-FR', // French
+  'it': 'it-IT', // Italian
+  'nl': 'nl-NL', // Dutch
+  'sv': 'sv-SE', // Swedish
+  'da': 'da-DK', // Danish
+  'fi': 'fi-FI', // Finnish
+  'el': 'el-GR', // Greek
+  'hu': 'hu-HU', // Hungarian
+  'cs': 'cs-CZ', // Czech
+  'pl': 'pl-PL', // Polish
+  'ro': 'ro-RO', // Romanian
+  'no': 'nb-NO', // Norwegian (Bokmål)
+  'sk': 'sk-SK', // Slovak
+  'hr': 'hr-HR', // Croatian
+  'sr': 'sr-RS', // Serbian
+  'sl': 'sl-SI', // Slovenian
+  'lt': 'lt-LT', // Lithuanian
+  'lv': 'lv-LV', // Latvian
+  'et': 'et-EE', // Estonian
+  'mt': 'mt-MT', // Maltese
+};
+
+
 export function getExtensionByMimeType(mimeType) {
     const extensions = {
         'audio/webm': '.webm',
@@ -49,7 +88,7 @@ export function getExtensionByMimeType(mimeType) {
 export async function detectLanguage(text) {
   const languages = detect(text);
   console.log(`Inferred languages: ${JSON.stringify(languages)}`);
-  return languages[0].lang;
+  return LANGUAGE_TO_COMMON_COUNTRY[languages[0].lang] || languages[0].lang;
 }
 
 export function remuxAudio(input, output) {
