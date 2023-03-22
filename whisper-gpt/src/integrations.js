@@ -301,6 +301,13 @@ export async function generateInlineImages(message, options = {}, user) {
     const generatedImages = Array.from(await Promise.all(imagePromises)).map(
         ([pattern, imageFile]) => ({ pattern, imageFile }));
 
+    const failedImages = generatedImages.filter(({ pattern, imageFile }) => !imageFile);
+    if (failedImages.length > 0) {
+        console.error(`Failed to generate ${failedImages.length}/${generatedImages.length} images`);
+    } else {
+        console.log(`Generated ${generatedImages.length} images successfully`);
+    }
+
     const updatedMessage = renderMessage(message, generatedImages);
     return [ updatedMessage, generatedImages ]
 }
@@ -447,8 +454,7 @@ export async function generateImageWithDallE(description, options, user) {
             const imageUrl = `${IMAGE_HOST}/${imageFile}`;
             const cost = OPENAI_IMAGE_PRICE[imageSize];
 
-            await uploadFileToS3(
-                IMAGE_BUCKET,
+            await uploadFileToS3( IMAGE_BUCKET,
                 imageFile,
                 Buffer.from(imageResponse.data),
                 'image/png');
