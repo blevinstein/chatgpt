@@ -35,6 +35,10 @@ button {
     transition: background-color 0.5s, color 0.5s, opacity 0.5s;
 }
 
+ul {
+    list-style-position: inside;
+}
+
 button .fa {
     transition: transform 0.5s;
 }
@@ -123,16 +127,16 @@ textarea {
     width: 100%;
 }
 
-#messageList li {
+#messageList .listItem {
     padding: 1rem;
     border-radius: 0.25rem;
 }
 
-#messageList li:nth-child(odd) {
+#messageList .listItem:nth-child(odd) {
     background-color: #f1f1f1;
 }
 
-#messageList li:nth-child(even) {
+#messageList .listItem:nth-child(even) {
     background-color: #e0e0e0;
 }
 
