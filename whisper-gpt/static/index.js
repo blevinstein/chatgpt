@@ -11,6 +11,7 @@ let stopSpeaking = () => {};
 let selectedPrompts = ['dan', 'image'];
 let systemPrompt = '';
 let messages = [];
+let messageImages = [];
 
 // Cache of text prompts fetched from the server
 const promptCache = {};
@@ -28,6 +29,9 @@ const DEFAULT_OPTIONS = {
     imageSize: "512x512",
     imageModelId: "midjourney"
 };
+
+// NOTE: Keep in sync with src/integrations.js
+const IMAGE_REGEX = /IMAGE\s?\d{0,3}:?\s?\[([^\[\]<>]*)\]/gi;
 
 async function initMediaRecorder() {
     mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -178,7 +182,9 @@ async function announceMessage(message, language) {
 
         stopSpeaking = () => {
             document.getElementById('stopAudioButton').classList.remove('playing');
-            audioSource.stop();
+            if (audioSource) {
+                audioSource.stop();
+            }
         };
 
         if (!response.ok) throw response.statusText;
@@ -266,7 +272,11 @@ async function reloadImage(event) {
         });
 
         if (!response.ok) throw response.statusText;
+        // NOTE: There should only be one image returned in `generatedImages` here, because there
+        // was only one image in the fragment rendered.
         const { html, generatedImages } = await response.json();
+        messageImages.push(generatedImages[0]);
+
         span.innerHTML = html;
         span.classList.remove('imageRetry');
 
@@ -304,6 +314,7 @@ async function requestChatResponse() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 messages: [{ role: 'system', content: getSystemPrompt()}].concat(messages),
+                images: messageImages,
                 options: getOptions(),
             }),
         });
@@ -336,12 +347,13 @@ async function requestChatResponse() {
                 console.log(`Chat response successful: ${text}`);
                 addChatMessage('assistant', chatListItem, html, inferId);
                 messages.push({ role: 'assistant', content: text });
-                await announceMessage(text, language);
+                await announceMessage(text.replaceAll(IMAGE_REGEX, ''), language);
             });
             // Third response: images are loaded and the full response is available
             chatStream.addEventListener('imagesLoaded', async (event) => {
-                const { text, language, html } = JSON.parse(event.data);
+                const { text, language, html, generatedImages } = JSON.parse(event.data);
                 console.log(`Images rendered successfully: ${text}`);
+                messageImages.push(...generatedImages);
                 addChatMessage('assistant', chatListItem, html, inferId);
                 chatStream.close();
                 resolve();
@@ -456,6 +468,7 @@ async function fetchChatLogs(inferId) {
     // Load messages, except the system message, including the response message.
     messages = responseData.input.messages.slice(1).concat(
         responseData.response.choices[0].message);
+    messageImages = responseData.generatedImages;
 
     // Create list items synchronously, to ensure messages are rendered in the correct
     // order.

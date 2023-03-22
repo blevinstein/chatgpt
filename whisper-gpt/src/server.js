@@ -230,7 +230,7 @@ async function main() {
             return;
         }
 
-        const { messages, options = {} } = chatArgs.get(streamId);
+        const { messages, images, options = {} } = chatArgs.get(streamId);
         chatArgs.delete(streamId);
         console.log(`Chat stream started [${streamId}]`);
 
@@ -245,7 +245,7 @@ async function main() {
         };
 
         try {
-            const chatCompletion = generateChatCompletion(messages, options, getUser(req));
+            const chatCompletion = generateChatCompletion(messages, images, options, getUser(req));
             const { value: inferId } = await chatCompletion.next();
             writeEvent('setInferId', { inferId });
 
@@ -280,12 +280,13 @@ async function main() {
             }
             */
 
-            const { value: updatedReply } = await chatCompletion.next();
+            const { updatedReply, generatedImages } = (await chatCompletion.next()).value;
             // Now, send the full result with images to the frontend.
             writeEvent('imagesLoaded', {
                 language,
                 text: updatedReply,
                 html: markdown.render(updatedReply),
+                generatedImages,
             });
         } catch (error) {
             console.error('Error completing chat:', error);

@@ -75,6 +75,7 @@ const DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE = '768x768';
 // Stable diffusion via their API costs $10/mo for 1k requests
 const STABLE_DIFFUSION_PRICE = 0.01;
 
+// NOTE: Keep in sync with static/index.js
 export const IMAGE_REGEX = /IMAGE\s?\d{0,3}:?\s?\[([^\[\]<>]*)\]/gi;
 
 const DEFAULT_CHAT_MODEL = 'gpt-3.5-turbo';
@@ -219,7 +220,7 @@ export function synthesizeSpeech(text, language, voice) {
     });
 }
 
-export async function* generateChatCompletion(messages, options = {}, user) {
+export async function* generateChatCompletion(messages, images, options = {}, user) {
     const model = options.chatModel || DEFAULT_CHAT_MODEL;
     const input = {
         model,
@@ -247,13 +248,13 @@ export async function* generateChatCompletion(messages, options = {}, user) {
             cost,
             responseTime,
             user,
-            generatedImages,
+            generatedImages: (images || []).concat(generatedImages),
             options,
             selfLink: `${HOST}?inferId=${inferId}`,
         }, null, 4),
         'application/json');
 
-    yield updatedReply;
+    yield { updatedReply, generatedImages };
 }
 
 export async function updateImageInChatLog(inferId, pattern, imageFile) {
