@@ -91,6 +91,7 @@ async function stopRecordingAndUpload() {
             // NOTE: We assume that the transcription is plaintext, no HTML special characters,
             // so it can safely be used as HTML.
             addChatMessage('user', listItem, escapeHTML(transcription));
+            document.getElementById('recordButton').scrollIntoView();
         } catch (error) {
             console.error('Error uploading audio:', error);
             listItem.remove(); // Remove the listItem if the upload fails
@@ -240,6 +241,7 @@ async function sendTextMessage() {
             const { html } = await response.json();
             messages.push({ role: 'user', content: message });
             addChatMessage('user', listItem, html);
+            document.getElementById('textInput').scrollIntoView();
         } catch (error) {
             console.error('Error rendering message:', error);
             listItem.remove();
@@ -356,6 +358,7 @@ async function requestChatResponse() {
                 console.log(`Images rendered successfully: ${text}`);
                 messageImages.push(...generatedImages);
                 addChatMessage('assistant', chatListItem, html, inferId);
+                document.getElementById('sendTextButton').scrollIntoView();
                 chatStream.close();
                 resolve();
             });

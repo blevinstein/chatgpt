@@ -1,6 +1,7 @@
 import AWS from 'aws-sdk';
 import axios from 'axios';
 import dotenv from 'dotenv';
+import { backOff } from 'exponential-backoff';
 import FormData from 'form-data';
 import fs from 'fs';
 import { Configuration, OpenAIApi } from 'openai';
@@ -292,11 +293,18 @@ export async function generateInlineImages(message, options = {}, user) {
             console.error(`Unexpected imageModel specified: ${options.imageModel}`);
             break;
     }
+    const generateImageWithRetry = (...args) => backOff(() => generateImage(...args), {
+        numOfAttempts: 5,
+        startingDelay: 1000,
+        retry: (error, attemptNumber) => {
+            console.error(`Image generation failed, attempt ${attemptNumber}:`, error);
+        },
+    });
 
     // Generate images in parallel using Promise.all
     const imagePromises = Array.from(message.matchAll(IMAGE_REGEX))
         .map(([pattern, description]) =>
-            generateImage(description, options, user)
+            generateImageWithRetry(description, options, user)
                 .then((imageFile) => [ pattern, imageFile ]));
     const generatedImages = Array.from(await Promise.all(imagePromises)).map(
         ([pattern, imageFile]) => ({ pattern, imageFile }));
