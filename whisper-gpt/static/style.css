@@ -360,3 +360,25 @@ footer {
     border: 2px solid red;
     opacity: 1;
 }
+
+#galleryContainer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-evenly;
+}
+
+#galleryContainer .imageCard {
+    margin: 1rem;
+    max-width: 512px;
+    width: 100%;
+    transition: transform 0.5s;
+}
+
+#galleryContainer .imageCard:hover {
+    transform: scale(1.1);
+}
+
+#galleryContainer .imageCard img {
+    border: 3px solid black;
+    max-width: 100%;
+}
