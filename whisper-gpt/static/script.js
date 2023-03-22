@@ -178,7 +178,8 @@ async function announceMessage(message, language) {
             body: JSON.stringify({
                 text: message,
                 language,
-                voice: getOptions().voice
+                voice: getOptions().voice,
+                voiceGender: getOptions().voiceGender,
             }),
         });
 

@@ -182,8 +182,20 @@ export async function transcribeAudioFile(filePath, user) {
     }
 }
 
+export function getVoices() {
+    return new Promise((resolve, reject) => {
+        polly.describeVoices({}, (err, data) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(data.Voices);
+            }
+        });
+    });
+}
+
 const DEFAULT_VOICE_ID = 'Matthew';
-export async function synthesizeSpeech(text, language, voice) {
+export function synthesizeSpeech(text, language, voice) {
     const params = {
         OutputFormat: "mp3",
         Text: language ? `<lang xml:lang="${language}">${text}</lang>` : text,
@@ -192,7 +204,7 @@ export async function synthesizeSpeech(text, language, voice) {
         Engine: 'neural',
     };
 
-    return await new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
         polly.synthesizeSpeech(params, (err, data) => {
             if (err) {
                 reject(err);

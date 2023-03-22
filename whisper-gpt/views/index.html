@@ -54,8 +54,11 @@
             <div id="optionsReveal" class="hidden">
                 <pre id="optionsInstructions">
 "chatModel": "gpt-3.5-turbo" or "gpt-4"
+# to force a specific voice:
 "voice": try "Kevin" or "Salli" or "Matthew" or "Kimberly" or "Kendra" or "Justin" or "Joey"
     or "Joanna" or "Ivy" or "Ruth" or "Stephen"
+# or, to specify only a gender:
+"voiceGender": "Male" or "Female"
 "imageModel":
     for Dall-E: "dallE"
     for Replicate: "replicate"
@@ -79,7 +82,7 @@
                 <textarea id="options">
 {
   "chatModel": "gpt-3.5-turbo",
-  "voice": "Matthew",
+  "voiceGender": "Female",
   "imageModel": "stableDiffusion",
   "imageSize": "512x512",
   "imageModelId": "midjourney"
