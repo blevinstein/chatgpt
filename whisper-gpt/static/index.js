@@ -87,6 +87,7 @@ async function stopRecordingAndUpload() {
             if (!response.ok) throw response.statusText;
             const transcription = await response.text();
             console.log(`Audio transcribed successfully: ${transcription}`);
+            messages.push({ role: 'user', content: transcription });
             // NOTE: We assume that the transcription is plaintext, no HTML special characters,
             // so it can safely be used as HTML.
             addChatMessage('user', listItem, escapeHTML(transcription));
