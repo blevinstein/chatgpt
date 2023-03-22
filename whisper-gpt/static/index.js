@@ -85,7 +85,7 @@ async function stopRecordingAndUpload() {
             console.log(`Audio transcribed successfully: ${transcription}`);
             // NOTE: We assume that the transcription is plaintext, no HTML special characters,
             // so it can safely be used as HTML.
-            addChatMessage('user', transcription, listItem);
+            addChatMessage('user', listItem, escapeHTML(transcription));
         } catch (error) {
             console.error('Error uploading audio:', error);
             listItem.remove(); // Remove the listItem if the upload fails
@@ -110,27 +110,18 @@ function showMessageBox(buttonSource, message) {
     setTimeout(() => messageBox.classList.remove('show'), MESSAGE_DURATION);
 }
 
-function addChatMessage(username, message, listItem, html, inferId) {
-    if (message) {
-        // TODO: Cleanup. We omit this when overwriting a previously rendered image.
-        messages.push({ role: username, content: message });
-    }
-
+function addChatMessage(username, listItem, html, inferId) {
     // Clear existing contents
     listItem.innerHTML = '';
 
     const messageElement = cloneTemplate('message');
     messageElement.dataset.inferId = inferId;
     messageElement.querySelector('.username').textContent = `${username}: `;
-    if (html) {
-      messageElement.querySelector('.contents').innerHTML = html;
-    } else {
-      messageElement.querySelector('.contents').textContent = message;
-    }
+    messageElement.querySelector('.contents').innerHTML = html;
 
     const copyButton = messageElement.querySelector('.copyButton');
     const copyMessageToClipboard = () => {
-        navigator.clipboard.writeText(message);
+        navigator.clipboard.writeText(html);
         showMessageBox(copyButton, 'Copied message to clipboard!');
     };
     copyButton.addEventListener('mouseup', copyMessageToClipboard);
@@ -240,7 +231,8 @@ async function sendTextMessage() {
             if (!response.ok) throw response.statusText;
 
             const { html } = await response.json();
-            addChatMessage('user', message, listItem, html);
+            messages.push({ role: 'user', content: message });
+            addChatMessage('user', listItem, html);
         } catch (error) {
             console.error('Error rendering message:', error);
             listItem.remove();
@@ -342,14 +334,15 @@ async function requestChatResponse() {
             chatStream.addEventListener('chatResponse', async (event) => {
                 const { text, language, html } = JSON.parse(event.data);
                 console.log(`Chat response successful: ${text}`);
-                addChatMessage('assistant', text, chatListItem, html, inferId);
+                addChatMessage('assistant', chatListItem, html, inferId);
+                messages.push({ role: 'assistant', content: text });
                 await announceMessage(text, language);
             });
             // Third response: images are loaded and the full response is available
             chatStream.addEventListener('imagesLoaded', async (event) => {
                 const { text, language, html } = JSON.parse(event.data);
                 console.log(`Images rendered successfully: ${text}`);
-                addChatMessage('assistant', null, chatListItem, html, inferId);
+                addChatMessage('assistant', chatListItem, html, inferId);
                 chatStream.close();
                 resolve();
             });
@@ -461,15 +454,15 @@ async function fetchChatLogs(inferId) {
     document.getElementById('systemInput').value = responseData.input.messages[0].content;
 
     // Load messages, except the system message, including the response message.
-    const loadMessages = responseData.input.messages.slice(1).concat(
+    messages = responseData.input.messages.slice(1).concat(
         responseData.response.choices[0].message);
 
     // Create list items synchronously, to ensure messages are rendered in the correct
     // order.
-    const listItems = loadMessages.map(() => createListItemWithSpinner());
+    const listItems = messages.map(() => createListItemWithSpinner());
 
     // Render all the messages server-side, using the already-generated images.
-    await Promise.all(loadMessages.map(async (message, messageIndex) => {
+    await Promise.all(messages.map(async (message, messageIndex) => {
         const response = await fetch('/renderMessage', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -485,12 +478,11 @@ async function fetchChatLogs(inferId) {
         const { html } = await response.json();
         addChatMessage(
             message.role,
-            message.content,
             listItems[messageIndex],
             html,
             // Add the inference link on the last message only. We don't have the
             // inference IDs for earlier chat responses in the thread.
-            messageIndex === loadMessages.length - 1 ? inferId : undefined);
+            messageIndex === messages.length - 1 ? inferId : undefined);
     }));
 }
 

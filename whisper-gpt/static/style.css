@@ -277,7 +277,7 @@ textarea {
 .promptButton.selected {
     background-color: #2196F3;
     color: #fff;
-    border: 1px solid #2196F3;
+    border: 2px solid #2196F3;
 }
 
 .promptButton.selected:hover {
