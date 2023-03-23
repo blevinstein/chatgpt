@@ -50,6 +50,10 @@ async function getFileFromDropEvent(event, allowBlob = false) {
 function setSubjectImage(imageUrl) {
     const img = cloneTemplate('imageSubject');
     img.src = imageUrl;
+
+    // DEBUG
+    //img.addEventListener('click', describeImage);
+
     inputImage = imageUrl;
     document.getElementById('imageContainer').children[0].replaceWith(img);
     //document.getElementById('uploadImageButton').classList.remove('hidden');
@@ -97,6 +101,27 @@ async function enableDragAndDrop() {
     imageContainer.addEventListener('dragleave', doNothing);
     imageContainer.addEventListener('dragenter', doNothing);
 }
+
+async function describeImage(event) {
+    try {
+        const response = await fetch('/interpretImage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                inputImage,
+                // TODO: add question
+                options: getOptions(),
+            }),
+        });
+
+        if (!response.ok) throw response.statusText;
+
+        console.log(await response.json());
+
+    } catch (error) {
+        console.log('Failed to describe image:', error);
+    }
+};
 
 document.addEventListener('DOMContentLoaded', async () => {
     registerAudioButtons();

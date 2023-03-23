@@ -19,6 +19,7 @@ import {
     getVoices,
     IMAGE_HOST,
     IMAGE_REGEX,
+    interpretImage,
     listFilesInS3,
     synthesizeSpeech,
     transcribeAudioFile,
@@ -202,7 +203,13 @@ async function main() {
         }
     });
 
-    // This is used for text
+    app.post('/interpretImage', async (req, res) => {
+        let { question, inputImage, options = {} } = req.body;
+
+        const answer = await interpretImage(question, options, getUser(req), inputImage);
+        res.json({ answer });
+    });
+
     app.post('/renderMessage', async (req, res) => {
         let { message, generatedImages, inputImage, options = {} } = req.body;
 

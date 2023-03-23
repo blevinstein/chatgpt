@@ -33,6 +33,7 @@ const REPLICATE_MODELS = {
     'stableDiffusion_21': 'f178fa7a1ae43a9a9af01b833b9d2ecf97b1bcb0acfd2dc5dd04895e042863f1',
     'latentDiffusion': '61935d993257c3926064d388c590d5b9f8efc288d1b2ec77568ed15c9115a346',
     'img2img': '15a3689ee13b0d2616e98820eca31d4c3abcd36672df6afce5cb6feb1d66087d',
+    'blip-2': '4b32258c42e9efd4288bb9910bc532a69727f9acd26aa08e175713a0a857a608',
 };
 const REPLICATE_UNIT_PRICE = {
     // Costs per second
@@ -44,6 +45,7 @@ const REPLICATE_COST = {
     'stableDiffusion_21_fast': REPLICATE_UNIT_PRICE['a100'],
     'stableDiffusion_21': REPLICATE_UNIT_PRICE['a100'],
     'latentDiffusion': REPLICATE_UNIT_PRICE['t4'],
+    'blip-2': REPLICATE_UNIT_PRICE['a100'],
 };
 const DEFAULT_REPLICATE_MODEL = 'stableDiffusion_21_fast';
 const REPLICATE_POLL_TIME = 250;
@@ -336,7 +338,6 @@ export async function generateInlineImages(message, options = {}, user, inputIma
     return [ updatedMessage, generatedImages ]
 }
 
-// Uses the Replicate API to run the Stable Diffusion model.
 export async function generateImageWithReplicate(description, options, user, inputImage) {
     try {
         let input;
@@ -604,4 +605,88 @@ export async function generateImageWithStableDiffusion(description, options, use
     }
 }
 
+// Uses Replicate and blip-2 for image interpretation
+export async function interpretImage(question, options, user, inputImage) {
+    try {
+        const input = {
+            caption: !question,
+            question,
+            image: inputImage,
+        };
+        const generateInput = {
+            version: REPLICATE_MODELS['blip-2'],
+            input,
+        };
+
+        const startTime = performance.now();
+        const initiateResponse = await axios.post(
+            'https://api.replicate.com/v1/predictions',
+            generateInput,
+            {
+                headers: {
+                    'Authorization': `Token ${REPLICATE_API_TOKEN}`,
+                    'Content-Type': 'application/json',
+                },
+            }
+        );
+
+        const predictionId = initiateResponse.data.id;
+
+        let predictionStatus = 'pending';
+        let result;
+        let statusResponse;
+
+        while (predictionStatus !== 'succeeded') {
+            await new Promise(resolve => setTimeout(resolve, REPLICATE_POLL_TIME));
+
+            statusResponse = await axios.get(
+                `https://api.replicate.com/v1/predictions/${predictionId}`,
+                {
+                    headers: {
+                        'Authorization': `Token ${REPLICATE_API_TOKEN}`,
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
+
+            predictionStatus = statusResponse.data.status;
+
+            if (predictionStatus === 'failed') {
+                throw new Error('Prediction failed');
+            }
+
+            if (predictionStatus === 'succeeded') {
+                result = statusResponse.data.output;
+            }
+        }
+
+        const responseTime = performance.now() - startTime;
+        const cost = statusResponse.data.metrics.predict_time * REPLICATE_COST['blip-2'];
+
+        const inferId = createInferId();
+
+        await uploadFileToS3(
+            LOGS_BUCKET,
+            `interpret-${inferId}.json`,
+            JSON.stringify({
+                type: 'interpretImage',
+                model: 'replicate',
+                modelId: 'blip-2',
+                input: generateInput,
+                response: statusResponse.data,
+                cost,
+                predictTime: statusResponse.data.metrics.predict_time,
+                responseTime,
+                result,
+                user,
+                options,
+            }, null, 4),
+            'application/json');
+
+        console.log(`Image interpreted by Replicate (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(3)}${COLOR.reset})[${inferId}] (${(responseTime/1000).toFixed(2)}s)`);
+        return result;
+    } catch (error) {
+        console.error('Error interpreting image with Replicate:', error.message);
+    }
+}
 
