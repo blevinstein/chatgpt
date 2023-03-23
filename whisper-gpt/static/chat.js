@@ -322,7 +322,7 @@ async function fetchChatLogs(inferId) {
     const response = await fetch(`/chatLog/${inferId}`);
 
     if (!response.ok) {
-        console.error('Error fetching chat log:', error);
+        console.error('Error fetching chat log:', response.statusText);
         return;
     }
 

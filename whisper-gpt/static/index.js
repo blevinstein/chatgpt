@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // If requested, load chat state from log
     const queryParams = new Map(new URLSearchParams(window.location.search).entries());
-    if (queryParams.has('inferId')) {
+    if (queryParams.has('inferId') && queryParams.get('inferId')) {
         await fetchChatLogs(queryParams.get('inferId'));
     }
 });
