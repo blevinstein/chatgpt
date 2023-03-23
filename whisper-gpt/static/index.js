@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     registerAudioButtons();
     registerChatControls();
     registerSystemPromptControls();
-    registerOptionsControls();
+    await registerOptionsControls();
     await fetchPrompts(['dan', 'image']);
 
     // Display server build time:

@@ -1,4 +1,16 @@
 
+const OPTIONS_STORAGE_KEY = 'whispergpt-options';
+
+const DEFAULT_OPTIONS = {
+    chatModel: "gpt-3.5-turbo",
+    voiceGender: "Female",
+    imageModel: "stableDiffusion",
+    imageSize: "512x512",
+    imageModelId: "midjourney",
+    imageTransformModel: "stableDiffusion_img2img",
+    imageTransformModelId: "img2img",
+};
+
 // Convenience function for using templates hidden in HTML page
 function cloneTemplate(className) {
     const template = document.querySelector(`#templateLibrary > .${className}`);
@@ -13,7 +25,7 @@ function escapeHTML(unsafeText) {
     return div.innerHTML;
 }
 
-function registerOptionsControls() {
+async function registerOptionsControls() {
     const showOptions = document.getElementById('showOptions');
     const revealOptions = (event) => {
         event.preventDefault();
@@ -44,4 +56,19 @@ function registerOptionsControls() {
     };
     resetOptionsButton.addEventListener('mouseup', resetOptions);
     resetOptionsButton.addEventListener('touchend', resetOptions);
+
+    const instructionsResponse = await fetch('/options.txt');
+    if (!instructionsResponse.ok) throw instructionsResponse.statusText;
+    const instructions = await instructionsResponse.text();
+    document.getElementById('optionsInstructions').textContent = instructions;
+}
+
+// Fetch options JSON stored in the HTML page
+function getOptions() {
+    try {
+        return JSON.parse(document.getElementById('options').value.trim());
+    } catch (error) {
+        console.error('Failed to parse options:', error);
+        return {};
+    }
 }

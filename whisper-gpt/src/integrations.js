@@ -32,6 +32,7 @@ const REPLICATE_MODELS = {
     'stableDiffusion_21_fast': 'db21e45d3f7023abc2a46ee38a23973f6dce16bb082a930b0c49861f96d1e5bf',
     'stableDiffusion_21': 'f178fa7a1ae43a9a9af01b833b9d2ecf97b1bcb0acfd2dc5dd04895e042863f1',
     'latentDiffusion': '61935d993257c3926064d388c590d5b9f8efc288d1b2ec77568ed15c9115a346',
+    'img2img': '15a3689ee13b0d2616e98820eca31d4c3abcd36672df6afce5cb6feb1d66087d',
 };
 const REPLICATE_UNIT_PRICE = {
     // Costs per second
@@ -54,6 +55,9 @@ const STABLE_DIFFUSION_PROMPT_ENHANCEMENT = {
 const STABLE_DIFFUSION_NEGATIVE_PROMPT = 'deformed iris, deformed pupils, text, close up, cropped, out of frame, worst quality, low quality, jpeg artifacts, ugly, duplicate, morbid, mutilated, extra fingers, mutated hands, poorly drawn hands, poorly drawn face, mutation, deformed, blurry, dehydrated, bad anatomy, bad proportions, extra limbs, cloned face, disfigured, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers';
 
 const STABILITY_AI_KEY = process.env.STABILITY_AI_KEY;
+
+const DEFAULT_IMG2IMG_MODEL = 'stableDiffusion_img2img';
+const DEFAULT_IMG2IMG_MODEL_ID = '';
 
 const OPENAI_CHAT_PRICE = {
     // Costs per token
@@ -78,6 +82,7 @@ const STABLE_DIFFUSION_PRICE = 0.01;
 
 // NOTE: Keep in sync with static/index.js
 export const IMAGE_REGEX = /IMAGE\s?\d{0,3}:?\s?\[([^\[\]<>]*)\]/gi;
+export const EDIT_REGEX = /EDIT\s?\d{0,3}:?\s?\[([^\[\]<>]*)\]/gi;
 
 const DEFAULT_CHAT_MODEL = 'gpt-3.5-turbo';
 
@@ -221,7 +226,7 @@ export function synthesizeSpeech(text, language, voice) {
     });
 }
 
-export async function* generateChatCompletion(messages, images, options = {}, user) {
+export async function* generateChatCompletion(messages, images, options = {}, user, inputImage) {
     const model = options.chatModel || DEFAULT_CHAT_MODEL;
     const input = {
         model,
@@ -238,7 +243,7 @@ export async function* generateChatCompletion(messages, images, options = {}, us
 
     yield reply;
 
-    const [ updatedReply, generatedImages ] = await generateInlineImages(reply, options, user);
+    const [ updatedReply, generatedImages ] = await generateInlineImages(reply, options, user, inputImage);
     await uploadFileToS3(
         LOGS_BUCKET,
         `chat-${inferId}.json`,
@@ -273,7 +278,7 @@ export async function updateImageInChatLog(inferId, pattern, imageFile) {
 }
 
 // TODO: Add a config option or argument to switch between DALL-E and Stable Diffusion
-export async function generateInlineImages(message, options = {}, user) {
+export async function generateInlineImages(message, options = {}, user, inputImage) {
     let generateImage;
     switch (options.imageModel) {
         case 'dallE':
@@ -302,10 +307,19 @@ export async function generateInlineImages(message, options = {}, user) {
     });
 
     // Generate images in parallel using Promise.all
-    const imagePromises = Array.from(message.matchAll(IMAGE_REGEX))
+    const createImagePromises = Array.from(message.matchAll(IMAGE_REGEX))
         .map(([pattern, description]) =>
             generateImageWithRetry(description, options, user)
                 .then((imageFile) => [ pattern, imageFile ]));
+    const editImagePromises = Array.from(message.matchAll(EDIT_REGEX))
+        .map(([pattern, description]) =>
+            generateImageWithRetry(description, {
+                ...options,
+                imageModel: options.imageTransformModel || DEFAULT_IMG2IMG_MODEL,
+                imageModelId: options.imageTransformModelId,
+            }, user, inputImage)
+                .then((imageFile) => [ pattern, imageFile ]));
+    const imagePromises = createImagePromises.concat(editImagePromises);
     const generatedImages = Array.from(await Promise.all(imagePromises)).map(
         ([pattern, imageFile]) => ({ pattern, imageFile }));
 
@@ -321,7 +335,7 @@ export async function generateInlineImages(message, options = {}, user) {
 }
 
 // Uses the Replicate API to run the Stable Diffusion model.
-export async function generateImageWithReplicate(description, options, user) {
+export async function generateImageWithReplicate(description, options, user, inputImage) {
     try {
         let input;
         const modelId = options.imageModelId || DEFAULT_REPLICATE_MODEL;
@@ -338,6 +352,14 @@ export async function generateImageWithReplicate(description, options, user) {
                 input = {
                     prompt: description,
                     n_samples: 1,
+                };
+                break;
+            case 'img2img':
+                input = {
+                    image: inputImage,
+                    prompt: description,
+                    negative_prompt: STABLE_DIFFUSION_NEGATIVE_PROMPT,
+                    image_dimensions: options.imageSize || DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE,
                 };
                 break;
             default:
@@ -492,7 +514,7 @@ export async function generateImageWithDallE(description, options, user) {
     }
 }
 
-export async function generateImageWithStableDiffusion(description, options, user) {
+export async function generateImageWithStableDiffusion(description, options, user, inputImage) {
     const [width, height] = (options.imageSize || DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE)
         .split('x').map(Number);
     const inferId = createInferId();
@@ -510,19 +532,33 @@ export async function generateImageWithStableDiffusion(description, options, use
             model_id: isDreambooth ? options.imageModelId || DEFAULT_DREAMBOOTH_MODEL_ID : undefined,
             prompt,
             negative_prompt: STABLE_DIFFUSION_NEGATIVE_PROMPT,
+            init_image: inputImage,
             samples: 1,
             width,
             height,
             num_inference_steps: 50,
-            guidance_scale: 10,
+            guidance_scale: 7.5,
             track_id: inferId,
         };
 
+        let endpoint;
+        switch (options.imageModel) {
+            case 'dreambooth':
+                endpoint = 'https://stablediffusionapi.com/api/v3/dreambooth';
+                break;
+            case 'stableDiffusion':
+                endpoint = 'https://stablediffusionapi.com/api/v3/text2img';
+                break;
+            case 'stableDiffusion_img2img':
+                endpoint = 'https://stablediffusionapi.com/api/v3/img2img';
+                break;
+            default:
+                throw new Error(`Unexpected imageModel: ${options.imageModel}`);
+        }
+
         const startTime = performance.now();
         const generateResponse = await axios.post(
-            isDreambooth
-                ? 'https://stablediffusionapi.com/api/v3/dreambooth'
-                : 'https://stablediffusionapi.com/api/v3/text2img',
+            endpoint,
             generateInput,
             { responseType: 'json' },
         );

@@ -50,33 +50,7 @@
         <footer>
             <a id="showOptions" href="#">Options</a>
             <div id="optionsReveal" class="hidden">
-                <pre id="optionsInstructions">
-    "chatModel":
-        "gpt-3.5-turbo" or "gpt-4"
-    "voice":
-        "Kevin" or "Salli" or "Matthew" or "Kimberly" or "Kendra" or "Justin" or "Joey" or "Joanna"
-        or "Ivy" or "Ruth" or "Stephen"
-    "voiceGender": "Male" or "Female" (ignored if "voice" is set)
-    "imageModel":
-        for Dall-E: "dallE"
-        for Replicate: "replicate"
-        for StableDiffusion: "stableDiffusion"
-        for StableDiffusion/Dreambooth: "dreambooth"
-    "imageModelId"
-        for Dall-E: ignored
-        for Replicate: "stableDiffusion_21_fast" or "stableDiffusion_21" or "latentDiffusion"
-        for StableDiffusion: ignored
-        for Dreambooth: see https://stablediffusionapi.com/models, try:
-            - "midjourney"
-            - "realistic-vision-v13" (with prompt enhancement!)
-            - "anything-v3" or "wifu-diffusion" (anime)
-            - "f222-diffusion"
-    "imageSize"
-        for Dall-E: "256x256" or "512x512" or "1024x1024"
-        for Replicate/StableDiffusion: "512x512" or "768x768"
-        for Replicate/LatentDiffusion: ignored
-        for StableDiffusion or Dreambooth: arbitrary sizes up to "768x1024" or "1024x768"
-                </pre>
+                <pre id="optionsInstructions"></pre>
                 <div id="optionsContainer">
                     <textarea id="options"></textarea>
                     <button id="resetOptionsButton"><i class="fa fa-undo"></i></button>

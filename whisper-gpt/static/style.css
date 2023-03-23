@@ -308,6 +308,8 @@ footer {
 #optionsInstructions {
     border: 1px dashed grey;
     color: grey;
+    max-height: 15rem;
+    overflow-y: scroll;
     padding: 0.5rem;
     text-align: left;
     width: 100%;

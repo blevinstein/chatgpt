@@ -3,18 +3,10 @@ let selectedPrompts = [];
 let systemPrompt = '';
 let messages = [];
 let messageImages = [];
+let inputImage;
 
 // Cache of text prompts fetched from the server
 const promptCache = {};
-
-const OPTIONS_STORAGE_KEY = 'whispergpt-options';
-const DEFAULT_OPTIONS = {
-    chatModel: "gpt-3.5-turbo",
-    voiceGender: "Female",
-    imageModel: "stableDiffusion",
-    imageSize: "512x512",
-    imageModelId: "midjourney"
-};
 
 // NOTE: Keep in sync with src/integrations.js
 const IMAGE_REGEX = /IMAGE\s?\d{0,3}:?\s?\[([^\[\]<>]*)\]/gi;
@@ -76,16 +68,6 @@ function createListItemWithSpinner() {
     return listItem;
 }
 
-// Fetch options JSON stored in the HTML page
-function getOptions() {
-    try {
-        return JSON.parse(document.getElementById('options').value.trim());
-    } catch (error) {
-        console.error('Failed to parse options:', error);
-        return {};
-    }
-}
-
 // Add a user-provided text message to the chat
 async function sendTextMessage() {
     const message = textInput.value.trim();
@@ -98,7 +80,11 @@ async function sendTextMessage() {
             const response = await fetch('/renderMessage', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message, options: getOptions() }),
+                body: JSON.stringify({
+                    message,
+                    inputImage,
+                    options: getOptions(),
+                }),
             });
 
             if (!response.ok) throw response.statusText;
@@ -134,6 +120,7 @@ async function reloadImage(event) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 message: messageFragment,
+                inputImage,
                 options: getOptions(),
             }),
         });
@@ -182,6 +169,7 @@ async function requestChatResponse(systemPrompt, messages) {
             body: JSON.stringify({
                 messages: [{ role: 'system', content: systemPrompt}].concat(messages),
                 images: messageImages,
+                inputImage,
                 options: getOptions(),
             }),
         });
@@ -245,8 +233,9 @@ async function fetchPrompts(initialPrompts = [], customPrompt = '') {
 
     try {
         const response = await fetch('/prompts');
-        const prompts = await response.json();
+        if (!response.ok) throw response.statusText;
 
+        const prompts = await response.json();
 
         const promptButtonContainer = document.getElementById('promptButtonContainer');
         prompts.sort();

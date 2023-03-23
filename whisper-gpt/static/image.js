@@ -41,6 +41,7 @@ async function getFileFromDropEvent(event) {
 function setSubjectImage(imageUrl) {
     const img = cloneTemplate('imageSubject');
     img.src = imageUrl;
+    inputImage = imageUrl;
     document.getElementById('imageContainer').children[0].replaceWith(img);
     document.getElementById('uploadImageButton').classList.remove('hidden');
 }
@@ -49,7 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     registerAudioButtons();
     registerChatControls();
     registerSystemPromptControls();
-    registerOptionsControls();
+    await registerOptionsControls();
 
     // Display server build time:
     await fetchBuildTime();

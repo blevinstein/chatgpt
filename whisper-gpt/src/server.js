@@ -1,3 +1,4 @@
+import bodyParser from 'body-parser';
 import cookieSession from 'cookie-session';
 import cors from 'cors';
 import express from 'express';
@@ -71,7 +72,8 @@ async function main() {
     app.use(cors());
 
     // Setup JSON parsing
-    app.use(express.json());
+    //app.use(express.json());
+    app.use(bodyParser.json({limit: '50mb'}));
 
     // Initialize Passport and enable session support
     app.use(cookieSession({
@@ -201,7 +203,7 @@ async function main() {
 
     // This is used for text
     app.post('/renderMessage', async (req, res) => {
-        let { message, generatedImages, options = {} } = req.body;
+        let { message, generatedImages, inputImage, options = {} } = req.body;
 
         let renderedMessage = message;
         if (generatedImages) {
@@ -209,7 +211,7 @@ async function main() {
             renderedMessage = renderMessage(message, generatedImages);
         } else {
             // Otherwise, generate new images using the appropriate API.
-            [ renderedMessage, generatedImages ] = await generateInlineImages(message, options, getUser(req));
+            [ renderedMessage, generatedImages ] = await generateInlineImages(message, options, getUser(req), inputImage);
         }
 
         // Render markdown to HTML for display in the browser
@@ -234,7 +236,7 @@ async function main() {
             return;
         }
 
-        const { messages, images, options = {} } = chatArgs.get(streamId);
+        const { messages, images, inputImage, options = {} } = chatArgs.get(streamId);
         chatArgs.delete(streamId);
         console.log(`Chat stream started [${streamId}]`);
 
@@ -249,7 +251,7 @@ async function main() {
         };
 
         try {
-            const chatCompletion = generateChatCompletion(messages, images, options, getUser(req));
+            const chatCompletion = generateChatCompletion(messages, images, options, getUser(req), inputImage);
             const { value: inferId } = await chatCompletion.next();
             writeEvent('setInferId', { inferId });
 
