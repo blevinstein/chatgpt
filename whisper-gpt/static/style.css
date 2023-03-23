@@ -16,7 +16,7 @@ body {
 h1 {
     padding: 1rem;
     color: #f1f1f1;
-    font-size: 4rem;
+    font-size: 3rem;
     -webkit-text-stroke: 2px #1E88E5;
 }
 
@@ -215,6 +215,7 @@ textarea {
 }
 
 #headerBar {
+    flex-wrap: wrap;
     padding: 1rem;
 }
 
