@@ -7,7 +7,7 @@ async function fetchImages() {
         const galleryContainer = document.getElementById('galleryContainer');
         images.forEach(image => {
             const imageCard = cloneTemplate('imageCard');
-            imageCard.querySelector('a').href = image.logLink;
+            imageCard.querySelector('a').href = image.editLink;
             imageCard.querySelector('img').src = image.imageLink;
             galleryContainer.appendChild(imageCard);
         });

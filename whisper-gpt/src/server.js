@@ -332,6 +332,7 @@ async function main() {
                 inferId,
                 lastModified: log.LastModified,
                 logLink: `${HOST}/imageLog/${inferId}`,
+                editLink: `${HOST}/image?imageId=${inferId}`,
                 imageLink: `${IMAGE_HOST}/${inferId}.png`,
             };
         });

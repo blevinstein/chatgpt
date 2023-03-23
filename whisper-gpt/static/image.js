@@ -8,6 +8,8 @@ const blobToBase64 = blob => {
     });
 };
 
+const getUrlForImageId = inferId => `https://whisper-gpt-generated.s3.amazonaws.com/${inferId}.png`;
+
 // Returns a URL or base64-encoded file data representing a single file
 async function getFileFromDropEvent(event, allowBlob = false) {
     let imageLoaded = false;
@@ -33,7 +35,7 @@ async function getFileFromDropEvent(event, allowBlob = false) {
                 const imageLogRegex = /https\:\/\/synaptek\.bio\/imageLog\/(\w+)/;
                 const match = string.match(imageLogRegex);
                 if (match) {
-                    return `https://whisper-gpt-generated.s3.amazonaws.com/${match[1]}.png`;
+                    return getUrlForImageId(match[1]);
                 }
                 return string;
             } else if (kind === 'file') {
@@ -113,6 +115,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const queryParams = new Map(new URLSearchParams(window.location.search).entries());
     if (queryParams.has('inferId') && queryParams.get('inferId')) {
         await fetchChatLogs(queryParams.get('inferId'));
+    } else if (queryParams.has('imageId') && queryParams.get('imageId')) {
+        setSubjectImage(getUrlForImageId(queryParams.get('imageId')));
     }
 });
 

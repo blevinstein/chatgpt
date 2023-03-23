@@ -426,7 +426,6 @@ export async function generateImageWithReplicate(description, options, user, inp
         const responseTime = performance.now() - startTime;
         const cost = statusResponse.data.metrics.predict_time * REPLICATE_COST[modelId];
 
-        // Save the image to disk
         const inferId = createInferId();
         const imageFile = `${inferId}.png`;
         const imageUrl = `${IMAGE_HOST}/${imageFile}`;
