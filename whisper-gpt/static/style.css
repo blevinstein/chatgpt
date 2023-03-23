@@ -393,6 +393,13 @@ footer {
     transform: scale(1.2);
 }
 
+.imageSubject {
+    border-radius: 1rem;
+    border: 2px solid black;
+    max-height: 24rem;
+    max-width: 24rem;
+}
+
 @media (max-width: 600px) {
     #controlBar {
         flex-direction: column;
