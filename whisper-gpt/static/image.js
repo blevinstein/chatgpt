@@ -53,35 +53,7 @@ function setSubjectImage(imageUrl) {
     document.getElementById('uploadImageButton').classList.remove('hidden');
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-    registerAudioButtons();
-    registerChatControls();
-    registerSystemPromptControls();
-    await registerOptionsControls();
-
-    // Display server build time:
-    await fetchBuildTime();
-
-    // Allow drag-and-drop images into subject slot
-    const handleDropImage = async (event) => {
-        event.preventDefault();
-        const imageUrl = await getFileFromDropEvent(event);
-        if (imageUrl) {
-            setSubjectImage(imageUrl);
-        } else {
-            console.error('No image found', event);
-        }
-    };
-    const doNothing = (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-    };
-    const imageContainer = document.getElementById('imageContainer')
-    imageContainer.addEventListener('drop', handleDropImage);
-    imageContainer.addEventListener('dragover', doNothing);
-    imageContainer.addEventListener('dragleave', doNothing);
-    imageContainer.addEventListener('dragenter', doNothing);
-
+async function enableClickToUpload() {
     // Allow click-to-upload images into subject slot
     const uploadInput = document.getElementById('uploadImage');
     uploadInput.addEventListener('change', async (event) => {
@@ -101,6 +73,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     const imagePlaceholder = document.getElementById('imagePlaceholder');
     imagePlaceholder.addEventListener('mouseup', startUpload);
     imagePlaceholder.addEventListener('touchend', startUpload);
+}
+
+async function enableDragAndDrop() {
+    const handleDropImage = async (event) => {
+        event.preventDefault();
+        const imageUrl = await getFileFromDropEvent(event);
+        if (imageUrl) {
+            setSubjectImage(imageUrl);
+        } else {
+            console.error('No image found', event);
+        }
+    };
+    const doNothing = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+    };
+    const imageContainer = document.getElementById('imageContainer')
+    imageContainer.addEventListener('drop', handleDropImage);
+    imageContainer.addEventListener('dragover', doNothing);
+    imageContainer.addEventListener('dragleave', doNothing);
+    imageContainer.addEventListener('dragenter', doNothing);
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    registerAudioButtons();
+    registerChatControls();
+    registerSystemPromptControls();
+    await registerOptionsControls();
+
+    // Display server build time:
+    await fetchBuildTime();
+
+    await enableDragAndDrop();
+    // TODO: Re-enable when url-encoded images are working
+    // await enableClickToUpload();
 
     // TODO: Support restoring state from logs
     /*
