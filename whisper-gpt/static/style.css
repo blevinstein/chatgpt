@@ -376,6 +376,7 @@ footer {
 #imageContainer {
     position: relative;
     padding: 1rem;
+    max-width: 50%;
 }
 
 #imagePlaceholder {
@@ -422,7 +423,23 @@ footer {
     color: black;
 }
 
-@media (max-width: 600px) {
+#imagePageContainer {
+    height: 100vh;
+    width: 100vw;
+}
+
+#imagePageContainer #chatContainer {
+    max-height: 100%;
+    overflow-x: hidden;
+    overflow-y: scroll;
+    justify-content: start;
+}
+
+#imagePageContainer #headerBar {
+    flex-direction: column;
+}
+
+@media (max-width: 700px) {
     #controlBar {
         flex-direction: column;
     }
@@ -444,7 +461,7 @@ footer {
         -webkit-text-stroke: 0;
     }
 
-    #pageContainer {
+    #imagePageContainer {
         flex-direction: column;
     }
 }

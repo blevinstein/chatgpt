@@ -13,6 +13,7 @@ import sanitize from 'sanitize-filename';
 import { createStreamId, detectLanguage, getExtensionByMimeType, HOST, remuxAudio, renderMessage } from './common.js';
 import {
     downloadFileFromS3,
+    EDIT_REGEX,
     generateChatCompletion,
     generateInlineImages,
     getVoices,
@@ -260,10 +261,13 @@ async function main() {
             const language = await detectLanguage(reply);
             // Immediately send the result to the frontend. At this point, the images are not yet
             // rendered.
+            const spinner = '\n\n<div class="spinner"></div>\n\n';
             writeEvent('chatResponse', {
                 language,
                 text: reply,
-                html: markdown.render(reply).replaceAll(IMAGE_REGEX, '\n\n<div class="spinner"></div>\n\n'),
+                html: markdown.render(reply)
+                    .replaceAll(IMAGE_REGEX, spinner)
+                    .replaceAll(EDIT_REGEX, spinner),
             });
 
             // Apply code assistant hooks

@@ -10,15 +10,14 @@
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-    <div id="headerBar">
-        <a href="/">
-            <h1>ImageChat</h1>
-        </a>
-        <a id="logout" href="/logout">Logout</a>
-    </div>
-
-    <div id="pageContainer">
+    <div id="imagePageContainer">
         <div id="chatContainer">
+            <div id="headerBar">
+                <a href="/">
+                    <h1>ImageChat</h1>
+                </a>
+                <a id="logout" href="/logout">Logout</a>
+            </div>
             <div id="promptButtonContainer">
               <!-- Automatically generated promptButton elements go here -->
             </div>
@@ -47,6 +46,17 @@
                     <button id="sendTextButton"><i class="fa fa-comment"></i></button>
                 </div>
             </div>
+            <footer>
+                <a id="showOptions" href="#">Options</a>
+                <div id="optionsReveal" class="hidden">
+                    <pre id="optionsInstructions"></pre>
+                    <div id="optionsContainer">
+                        <textarea id="options"></textarea>
+                        <button id="resetOptionsButton"><i class="fa fa-undo"></i></button>
+                    </div>
+                </div>
+                <p id="buildTimeContainer">Build time: <span id="buildTime"></span></p>
+            </footer>
         </div>
         <div id="imageContainer">
             <div id="imagePlaceholder">
@@ -58,18 +68,6 @@
         </div>
         <!-- <input type="file" id="uploadImage" class="hidden" /> -->
     </div>
-
-    <footer>
-        <a id="showOptions" href="#">Options</a>
-        <div id="optionsReveal" class="hidden">
-            <pre id="optionsInstructions"></pre>
-            <div id="optionsContainer">
-                <textarea id="options"></textarea>
-                <button id="resetOptionsButton"><i class="fa fa-undo"></i></button>
-            </div>
-        </div>
-        <p id="buildTimeContainer">Build time: <span id="buildTime"></span></p>
-    </footer>
 
     <div id="templateLibrary" class="hidden">
         <!-- Spinner -->
@@ -92,6 +90,9 @@
             </div>
             <div class="contents"></div>
         </div>
+
+        <!-- Prompt button -->
+        <button class="promptButton"></button>
 
         <img class="imageSubject">
         </img>

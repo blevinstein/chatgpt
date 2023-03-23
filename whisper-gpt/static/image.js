@@ -50,7 +50,7 @@ function setSubjectImage(imageUrl) {
     img.src = imageUrl;
     inputImage = imageUrl;
     document.getElementById('imageContainer').children[0].replaceWith(img);
-    document.getElementById('uploadImageButton').classList.remove('hidden');
+    //document.getElementById('uploadImageButton').classList.remove('hidden');
 }
 
 async function enableClickToUpload() {
@@ -101,6 +101,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     registerChatControls();
     registerSystemPromptControls();
     await registerOptionsControls();
+    await fetchPrompts(['dan', 'image', 'image_edit']);
 
     // Display server build time:
     await fetchBuildTime();
