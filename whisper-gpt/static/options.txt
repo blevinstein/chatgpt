@@ -29,4 +29,4 @@
 
 "imageTransformationModel" / "imageTransformationModelId"
     for StableDiffusion, imageTransformationModel = "stableDiffusion_img2img"
-    for Replicate, imageTransformationModel = "replicate" AND imageTransformationModelId = "img2img"
+    (Replicate is not currently working)

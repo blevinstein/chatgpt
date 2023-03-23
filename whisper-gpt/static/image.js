@@ -9,7 +9,7 @@ const blobToBase64 = blob => {
 };
 
 // Returns a URL or base64-encoded file data representing a single file
-async function getFileFromDropEvent(event) {
+async function getFileFromDropEvent(event, allowBlob = false) {
     let imageLoaded = false;
     if (event.dataTransfer.items && event.dataTransfer.items.length > 0) {
         const dataItems = await Promise.all(Array.from(event.dataTransfer.items).map(item => {
@@ -19,7 +19,7 @@ async function getFileFromDropEvent(event) {
                 return new Promise((resolve, reject) => {
                     item.getAsString(string => resolve({ kind, type, string }));
                 });
-            } else if (item.kind === 'file') {
+            } else if (item.kind === 'file' && allowBlob) {
                 return blobToBase64(item.getAsFile()).then(fileData => ({ kind, type, fileData }));
             } else {
                 console.log('Unexpected item kind:', item);
@@ -28,12 +28,19 @@ async function getFileFromDropEvent(event) {
 
         for (let { kind, type, string, fileData } of dataItems) {
             if (kind === 'string' && type === 'text/uri-list') {
+                // Quick hack to allow easy drag-and-drop of images from gallery
+                // TODO: Instead customize the drop payload?
+                const imageLogRegex = /https\:\/\/synaptek\.bio\/imageLog\/(\w+)/;
+                const match = string.match(imageLogRegex);
+                if (match) {
+                    return `https://whisper-gpt-generated.s3.amazonaws.com/${match[1]}.png`;
+                }
                 return string;
             } else if (kind === 'file') {
                 return fileData;
             }
         }
-    } else if(event.dataTransfer.files && event.dataTransfer.files.length > 0) {
+    } else if(event.dataTransfer.files && event.dataTransfer.files.length > 0 && allowBlob) {
         return await blobToBase64(event.dataTransfer.files[0]);
     }
 }

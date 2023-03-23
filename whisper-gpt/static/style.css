@@ -398,6 +398,8 @@ footer {
 }
 
 .imageSubject {
+    min-height: 12rem;
+    min-width: 12rem;
     border-radius: 1rem;
     border: 2px solid black;
     max-height: 24rem;

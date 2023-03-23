@@ -279,46 +279,47 @@ export async function updateImageInChatLog(inferId, pattern, imageFile) {
 
 // TODO: Add a config option or argument to switch between DALL-E and Stable Diffusion
 export async function generateInlineImages(message, options = {}, user, inputImage) {
-    let generateImage;
-    switch (options.imageModel) {
-        case 'dallE':
-            generateImage = generateImageWithDallE;
-            break;
-        case 'replicate':
-            generateImage = generateImageWithReplicate;
-            break;
-        case 'stableDiffusion':
-            generateImage = generateImageWithStableDiffusion;
-            break;
-        case 'dreambooth':
-            generateImage = generateImageWithStableDiffusion;
-            break;
-        default:
-            generateImage = generateImageWithDallE;
-            console.error(`Unexpected imageModel specified: ${options.imageModel}`);
-            break;
-    }
-    const generateImageWithRetry = (...args) => backOff(() => generateImage(...args), {
-        numOfAttempts: 5,
-        startingDelay: 1000,
-        retry: (error, attemptNumber) => {
-            console.error(`Image generation failed, attempt ${attemptNumber}:`, error);
-        },
-    });
+    let generateImage = (options) => {
+        switch (options.imageModel) {
+            case 'dallE':
+                return generateImageWithDallE;
+            case 'replicate':
+                return generateImageWithReplicate;
+            case 'stableDiffusion':
+            case 'stableDiffusion_img2img':
+                return generateImageWithStableDiffusion;
+            case 'dreambooth':
+                return generateImageWithStableDiffusion;
+            default:
+                console.error(`Unexpected imageModel specified: ${options.imageModel}`);
+                return generateImageWithStableDiffusion;
+        }
+    };
+    const generateImageWithRetry = (description, options, user, inputImage) =>
+        backOff(() => generateImage(options)(description, options, user, inputImage), {
+            numOfAttempts: 5,
+            startingDelay: 1000,
+            retry: (error, attemptNumber) => {
+                console.error(`Image generation failed, attempt ${attemptNumber}:`, error);
+            },
+        });
 
     // Generate images in parallel using Promise.all
     const createImagePromises = Array.from(message.matchAll(IMAGE_REGEX))
-        .map(([pattern, description]) =>
-            generateImageWithRetry(description, options, user)
-                .then((imageFile) => [ pattern, imageFile ]));
+        .map(([pattern, description]) => {
+            return generateImageWithRetry(description, options, user)
+                .then((imageFile) => [ pattern, imageFile ])
+        });
     const editImagePromises = Array.from(message.matchAll(EDIT_REGEX))
-        .map(([pattern, description]) =>
-            generateImageWithRetry(description, {
+        .map(([pattern, description]) => {
+            const newOptions = {
                 ...options,
                 imageModel: options.imageTransformModel || DEFAULT_IMG2IMG_MODEL,
                 imageModelId: options.imageTransformModelId,
-            }, user, inputImage)
-                .then((imageFile) => [ pattern, imageFile ]));
+            };
+            return generateImageWithRetry(description, newOptions, user, inputImage)
+                .then((imageFile) => [ pattern, imageFile ])
+        });
     const imagePromises = createImagePromises.concat(editImagePromises);
     const generatedImages = Array.from(await Promise.all(imagePromises)).map(
         ([pattern, imageFile]) => ({ pattern, imageFile }));

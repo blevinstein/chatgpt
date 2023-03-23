@@ -26,7 +26,9 @@ function addChatMessage(username, listItem, html, inferId) {
     listItem.innerHTML = '';
 
     const messageElement = cloneTemplate('message');
-    messageElement.dataset.inferId = inferId;
+    if (inferId) {
+        messageElement.dataset.inferId = inferId;
+    }
     messageElement.querySelector('.username').textContent = `${username}: `;
     messageElement.querySelector('.contents').innerHTML = html;
 
