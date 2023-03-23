@@ -1,4 +1,5 @@
 import cookieSession from 'cookie-session';
+import cors from 'cors';
 import express from 'express';
 import fs from 'fs';
 import MarkdownIt from 'markdown-it';
@@ -65,6 +66,9 @@ process
 async function main() {
     const app = express();
     const voices = await getVoices();
+
+    // Setup CORS
+    app.use(cors());
 
     // Setup JSON parsing
     app.use(express.json());

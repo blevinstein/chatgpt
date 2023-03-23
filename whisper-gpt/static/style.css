@@ -97,6 +97,7 @@ textarea {
     opacity: 0.5;
 }
 
+/* Control bar buttons */
 #recordButton,
 #stopAudioButton,
 #sendTextButton {
@@ -371,10 +372,11 @@ footer {
 }
 
 #imageContainer {
+    position: relative;
     padding: 1rem;
 }
 
-.imagePlaceholder {
+#imagePlaceholder {
     min-height: 12rem;
     min-width: 12rem;
     border-radius: 1rem;
@@ -384,11 +386,11 @@ footer {
     cursor: pointer;
 }
 
-.imagePlaceholder i {
+#imagePlaceholder i {
     transition: transform 0.5s, color 0.5s;
 }
 
-.imagePlaceholder:hover i {
+#imagePlaceholder:hover i {
     color: #04e067;
     transform: scale(1.2);
 }
@@ -398,6 +400,22 @@ footer {
     border: 2px solid black;
     max-height: 24rem;
     max-width: 24rem;
+}
+
+#uploadImageButton {
+    position: absolute;
+    top: 2rem;
+    right: 2rem;
+    width: 2rem;
+    height: 2rem;
+    background: none;
+    color: grey;
+    line-height: 1.5rem;
+    font-size: 1rem;
+}
+
+#uploadImageButton:hover {
+    color: black;
 }
 
 @media (max-width: 600px) {
