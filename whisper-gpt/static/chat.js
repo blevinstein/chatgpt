@@ -43,7 +43,7 @@ function addChatMessage(username, listItem, html, inferId) {
     const shareButton = messageElement.querySelector('.shareButton');
     if (inferId) {
         const copyLinkToClipboard = () => {
-            navigator.clipboard.writeText(`https://synaptek.bio?inferId=${inferId}`);
+            navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?inferId=${inferId}`);
             showMessageBox(shareButton, 'Copied link to clipboard!');
         }
         shareButton.addEventListener('mouseup', copyLinkToClipboard);
@@ -160,6 +160,11 @@ function getSystemPrompt() {
     return (systemPrompt + '\n\n'+ customPrompt).trim();
 }
 
+function setInferId(inferId) {
+    document.getElementById('whisperLink').href = `/?inferId=${inferId}`;
+    document.getElementById('imageLink').href = `/image?inferId=${inferId}`;
+}
+
 // Request a chat response from the chatbot API
 async function requestChatResponse(systemPrompt, messages) {
     const chatListItem = createListItemWithSpinner();
@@ -196,6 +201,7 @@ async function requestChatResponse(systemPrompt, messages) {
                 inferId = JSON.parse(event.data).inferId;
                 const searchParams = new URLSearchParams(window.location.search);
                 searchParams.set('inferId', inferId);
+                setInferId(inferId);
                 history.pushState(null, '', window.location.pathname + '?' + searchParams.toString());
             });
             // Second response: chat text is available, but images are not yet loaded (if any)
@@ -320,6 +326,8 @@ async function fetchChatLogs(inferId) {
         return;
     }
 
+    setInferId(inferId);
+
     // Clear preset prompts, and set the system prompt.
     selectedPrompts = [];
     updateSystemPrompt();
@@ -331,6 +339,11 @@ async function fetchChatLogs(inferId) {
     messages = responseData.input.messages.slice(1).concat(
         responseData.response.choices[0].message);
     messageImages = responseData.generatedImages;
+
+    // Load the input image, if specified and supported by the editor environment
+    if (responseData.inputImage && setSubjectImage) {
+        setSubjectImage(responseData.inputImage);
+    }
 
     // Create list items synchronously, to ensure messages are rendered in the correct
     // order.

@@ -254,6 +254,7 @@ export async function* generateChatCompletion(messages, images, options = {}, us
             cost,
             responseTime,
             user,
+            inputImage,
             generatedImages: (images || []).concat(generatedImages),
             options,
             selfLink: `${HOST}?inferId=${inferId}`,

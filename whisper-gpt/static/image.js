@@ -110,12 +110,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // TODO: Re-enable when url-encoded images are working
     // await enableClickToUpload();
 
-    // TODO: Support restoring state from logs
-    /*
     const queryParams = new Map(new URLSearchParams(window.location.search).entries());
     if (queryParams.has('inferId')) {
         await fetchChatLogs(queryParams.get('inferId'));
     }
-    */
 });
 

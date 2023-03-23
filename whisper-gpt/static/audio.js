@@ -127,7 +127,7 @@ function registerAudioButtons() {
     recordButton.addEventListener('touchend', stopRecordingAndUpload);
     recordButton.addEventListener('touchcancel', stopRecordingAndUpload);
     const stopAudioButton = document.getElementById('stopAudioButton');
-    stopAudioButton.addEventListener('mouseup', stopSpeaking);
-    stopAudioButton.addEventListener('touchend', stopSpeaking);
+    stopAudioButton.addEventListener('mouseup', () => stopSpeaking());
+    stopAudioButton.addEventListener('touchend', () => stopSpeaking());
 }
 
