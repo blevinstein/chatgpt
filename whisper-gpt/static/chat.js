@@ -16,8 +16,7 @@ function showMessageBox(buttonSource, message) {
     const messageBox = buttonSource.parentElement.querySelector('.messageBox');
     messageBox.textContent = message;
     messageBox.classList.add('show');
-    messageBox.addEventListener('mouseup', () => messageBox.classList.remove('show'));
-    messageBox.addEventListener('touchend', () => messageBox.classList.remove('show'));
+    bindClick(messageBox, () => messageBox.classList.remove('show'));
     setTimeout(() => messageBox.classList.remove('show'), MESSAGE_DURATION);
 }
 
@@ -33,33 +32,31 @@ function addChatMessage(username, listItem, html, inferId) {
     messageElement.querySelector('.contents').innerHTML = html;
 
     const copyButton = messageElement.querySelector('.copyButton');
-    const copyMessageToClipboard = () => {
+    bindClick(copyButton, () => {
         navigator.clipboard.writeText(html);
         showMessageBox(copyButton, 'Copied message to clipboard!');
-    };
-    copyButton.addEventListener('mouseup', copyMessageToClipboard);
-    copyButton.addEventListener('touchend', copyMessageToClipboard);
+    });
 
     const shareButton = messageElement.querySelector('.shareButton');
     if (inferId) {
-        const copyLinkToClipboard = () => {
+        bindClick(shareButton, () => {
             navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?inferId=${inferId}`);
             showMessageBox(shareButton, 'Copied link to clipboard!');
-        }
-        shareButton.addEventListener('mouseup', copyLinkToClipboard);
-        shareButton.addEventListener('touchend', copyLinkToClipboard);
+        });
     } else {
         shareButton.classList.add('hidden');
     }
 
-    // Add alt text to title in server-rendered images, so you can see text by hovering.
-    messageElement.querySelectorAll('.contents img').forEach(img => img.title = img.alt);
+    messageElement.querySelectorAll('.contents img').forEach(img => {
+        // Add alt text to title in server-rendered images, so you can see text by hovering.
+        img.title = img.alt;
+
+        enableSyntheticDragAndDrop(img, img.src);
+    });
 
     // Enable manual image generation retry
-    messageElement.querySelectorAll('.contents .imageRetry').forEach(span => {
-        span.addEventListener('mouseup', reloadImage);
-        span.addEventListener('touchend', reloadImage);
-    });
+    messageElement.querySelectorAll('.contents .imageRetry')
+        .forEach(span => bindClick(span, reloadImage));
 
     listItem.appendChild(messageElement);
 }
@@ -107,8 +104,7 @@ async function sendTextMessage() {
 // Request re-rendering of a particular image in a chat response.
 async function reloadImage(event) {
     const span = event.target;
-    span.removeEventListener('mouseup', reloadImage);
-    span.removeEventListener('touchend', reloadImage);
+    bindClick(span, reloadImage);
 
     const messageFragment = span.textContent;
 
@@ -149,8 +145,7 @@ async function reloadImage(event) {
         console.log('Error retrying image:', error);
         // Restore span
         span.textContent = messageFragment;
-        span.addEventListener('mouseup', reloadImage);
-        span.addEventListener('touchend', reloadImage);
+        bindClick(span, reloadImage);
     }
 }
 
@@ -254,8 +249,7 @@ async function fetchPrompts(initialPrompts = [], customPrompt = '') {
             if (selectedPrompts.includes(prompt)) {
                 button.classList.add('selected');
             }
-            button.addEventListener('mouseup', togglePromptButton);
-            button.addEventListener('touchend', togglePromptButton);
+            bindClick(button, togglePromptButton);
             promptButtonContainer.appendChild(button);
         });
         await Promise.all(selectedPrompts.map(p => getPromptData(p)));
@@ -376,26 +370,22 @@ async function fetchChatLogs(inferId) {
 
 function registerChatControls() {
     // Chat button:
-    const sendTextButton = document.getElementById('sendTextButton');
+    bindClick(document.getElementById('sendTextButton'), sendTextMessage);
     // Text input:
-    sendTextButton.addEventListener('mouseup', sendTextMessage);
-    sendTextButton.addEventListener('touchend', sendTextMessage);
-    const textInput = document.getElementById('textInput');
-    textInput.addEventListener('keypress', async (event) => {
-        if (event.key === 'Enter' && !event.shiftKey) {
-            event.preventDefault();
-            stopSpeaking();
-            await sendTextMessage();
-        }
-    });
+    document.getElementById('textInput')
+        .addEventListener('keypress', async (event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                stopSpeaking();
+                await sendTextMessage();
+            }
+        });
 }
 
 function registerSystemPromptControls() {
     const systemPromptCopyButton = document.getElementById('systemPromptCopyButton');
-    const copySystemPromptToClipboard = () => {
+    bindClick(systemPromptCopyButton, () => {
         navigator.clipboard.writeText(getSystemPrompt());
         showMessageBox(systemPromptCopyButton, 'Copied prompt to clipboard!');
-    }
-    systemPromptCopyButton.addEventListener('mouseup', copySystemPromptToClipboard);
-    systemPromptCopyButton.addEventListener('touchend', copySystemPromptToClipboard);
+    });
 }

@@ -11,6 +11,15 @@ const DEFAULT_OPTIONS = {
     imageTransformModelId: "img2img",
 };
 
+function bindClick(button, action) {
+    button.addEventListener('click', action);
+}
+
+function doNothing(event) {
+    event.preventDefault();
+    event.stopPropagation();
+};
+
 // Convenience function for using templates hidden in HTML page
 function cloneTemplate(className) {
     const template = document.querySelector(`#templateLibrary > .${className}`);
@@ -27,13 +36,11 @@ function escapeHTML(unsafeText) {
 
 async function registerOptionsControls() {
     const showOptions = document.getElementById('showOptions');
-    const revealOptions = (event) => {
+    bindClick(showOptions, (event) => {
         event.preventDefault();
         document.getElementById('optionsReveal').classList.toggle('hidden');
         setTimeout(() => showOptions.scrollIntoView(), 10);
-    };
-    showOptions.addEventListener('mouseup', revealOptions);
-    showOptions.addEventListener('touchend', revealOptions);
+    });
     const optionsInput = document.getElementById('options');
     if (window.localStorage.getItem(OPTIONS_STORAGE_KEY)) {
         optionsInput.value = window.localStorage.getItem(OPTIONS_STORAGE_KEY);
@@ -51,11 +58,9 @@ async function registerOptionsControls() {
         }
     });
     const resetOptionsButton = document.getElementById('resetOptionsButton');
-    const resetOptions = (event) => {
+    bindClick(resetOptionsButton, (event) => {
         optionsInput.value = JSON.stringify(DEFAULT_OPTIONS, null, 4);
-    };
-    resetOptionsButton.addEventListener('mouseup', resetOptions);
-    resetOptionsButton.addEventListener('touchend', resetOptions);
+    });
 
     const instructionsResponse = await fetch('/options.txt');
     if (!instructionsResponse.ok) throw instructionsResponse.statusText;

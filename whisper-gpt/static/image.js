@@ -11,10 +11,10 @@ const blobToBase64 = blob => {
 const getUrlForImageId = inferId => `https://whisper-gpt-generated.s3.amazonaws.com/${inferId}.png`;
 
 // Returns a URL or base64-encoded file data representing a single file
-async function getFileFromDropEvent(event, allowBlob = false) {
+async function getFileFromDataTransfer(dataTransfer, allowBlob = false) {
     let imageLoaded = false;
-    if (event.dataTransfer.items && event.dataTransfer.items.length > 0) {
-        const dataItems = await Promise.all(Array.from(event.dataTransfer.items).map(item => {
+    if (dataTransfer.items && dataTransfer.items.length > 0) {
+        const dataItems = await Promise.all(Array.from(dataTransfer.items).map(item => {
             const kind = item.kind;
             const type = item.type;
             if (item.kind === 'string') {
@@ -24,7 +24,7 @@ async function getFileFromDropEvent(event, allowBlob = false) {
             } else if (item.kind === 'file' && allowBlob) {
                 return blobToBase64(item.getAsFile()).then(fileData => ({ kind, type, fileData }));
             } else {
-                console.log('Unexpected item kind:', item);
+                console.error('Unexpected item kind:', item);
             }
         }));
 
@@ -42,8 +42,10 @@ async function getFileFromDropEvent(event, allowBlob = false) {
                 return fileData;
             }
         }
-    } else if(event.dataTransfer.files && event.dataTransfer.files.length > 0 && allowBlob) {
-        return await blobToBase64(event.dataTransfer.files[0]);
+    } else if(dataTransfer.files
+        && dataTransfer.files.length > 0
+        && allowBlob) {
+        return await blobToBase64(dataTransfer.files[0]);
     }
 }
 
@@ -66,40 +68,60 @@ async function enableClickToUpload() {
         if (event.target.files && event.target.files.length > 0) {
             setSubjectImage(await blobToBase64(event.target.files[0]));
         } else {
-            console.log('No image found:', event);
+            console.error('No image found:', event);
         }
     });
     const startUpload = (event) => {
         event.preventDefault();
         uploadInput.click();
     };
-    const uploadImageButton = document.getElementById('uploadImageButton');
-    uploadImageButton.addEventListener('mouseup', startUpload);
-    uploadImageButton.addEventListener('touchend', startUpload);
-    const imagePlaceholder = document.getElementById('imagePlaceholder');
-    imagePlaceholder.addEventListener('mouseup', startUpload);
-    imagePlaceholder.addEventListener('touchend', startUpload);
+    bindClick(document.getElementById('uploadImageButton'), startUpload);
+    bindClick(document.getElementById('imagePlaceholder'), startUpload);
 }
 
-async function enableDragAndDrop() {
-    const handleDropImage = async (event) => {
-        event.preventDefault();
-        const imageUrl = await getFileFromDropEvent(event);
-        if (imageUrl) {
-            setSubjectImage(imageUrl);
-        } else {
-            console.error('No image found', event);
-        }
-    };
-    const doNothing = (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-    };
+async function handleDropImage(event) {
+    event.preventDefault();
+    try {
+        if (!event.dataTransfer) throw 'No dataTransfer in drop event';
+        const imageUrl = await getFileFromDataTransfer(event.dataTransfer);
+        if (!imageUrl) throw 'No imageUrl found';
+        setSubjectImage(imageUrl);
+    } catch (error) {
+        console.error(error, event);
+    }
+}
+
+function enableDragAndDrop() {
     const imageContainer = document.getElementById('imageContainer')
     imageContainer.addEventListener('drop', handleDropImage);
     imageContainer.addEventListener('dragover', doNothing);
     imageContainer.addEventListener('dragleave', doNothing);
     imageContainer.addEventListener('dragenter', doNothing);
+}
+
+function enableSyntheticDragAndDrop(element, payload) {
+    // Prevent default actions on touch, to allow drag-and-drop
+    let lastTouch;
+    const recordTouch = (event) => {
+        doNothing(event);
+        if (event.touches && event.touches.length > 0) {
+            lastTouch = event.touches[0];
+        }
+    };
+    element.addEventListener('touchstart', recordTouch);
+    element.addEventListener('touchmove', recordTouch);
+    element.addEventListener('touchend', (event) => {
+        const imageContainer = document.getElementById('imageContainer')
+        const dropBounds = imageContainer.getBoundingClientRect();
+        if (dropBounds.x <= lastTouch.clientX
+            && lastTouch.clientX <= dropBounds.x + dropBounds.width
+            && dropBounds.y <= lastTouch.clientY
+            && lastTouch.clientY <= dropBounds.y + dropBounds.height) {
+            console.log(dropBounds);
+            console.log(lastTouch);
+            setSubjectImage(payload);
+        }
+    });
 }
 
 async function describeImage(event) {
@@ -116,8 +138,8 @@ async function describeImage(event) {
 
         if (!response.ok) throw response.statusText;
 
+        // TODO: Return description
         console.log(await response.json());
-
     } catch (error) {
         console.log('Failed to describe image:', error);
     }
@@ -133,7 +155,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Display server build time:
     await fetchBuildTime();
 
-    await enableDragAndDrop();
+    enableDragAndDrop();
     // TODO: Re-enable when url-encoded images are working
     // await enableClickToUpload();
 
