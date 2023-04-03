@@ -20,7 +20,7 @@ export async function measureTime(operation) {
 // Hash with a salt to anonymize data
 const SALT = 'Whisper GPT salt';
 export function hashValue(value) {
-    return crypto.createHash('sha1').update(SALT).update(value).digest('hex');
+    return crypto.createHash('sha1').update(SALT).update(value || '').digest('hex');
 }
 
 export const COLOR = {

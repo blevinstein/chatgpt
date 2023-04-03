@@ -4,7 +4,7 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "start": "node src/server.js",
+    "start": "node src/server.js --no-auth",
     "create-stack": "aws cloudformation create-stack --stack-name WhisperGptDev --template-body file://template.yaml --capabilities CAPABILITY_NAMED_IAM --parameters file://parameters.json",
     "update-stack": "aws cloudformation update-stack --stack-name WhisperGptDev --template-body file://template.yaml --capabilities CAPABILITY_NAMED_IAM --parameters file://parameters.json",
     "delete-stack": "aws cloudformation delete-stack --stack-name WhisperGptDev"
@@ -25,7 +25,8 @@
     "openai": "^3.2.1",
     "passport": "^0.6.0",
     "passport-google-oauth20": "^2.0.0",
-    "sanitize-filename": "^1.6.3"
+    "sanitize-filename": "^1.6.3",
+    "yargs": "^17.7.1"
   },
   "type": "module"
 }

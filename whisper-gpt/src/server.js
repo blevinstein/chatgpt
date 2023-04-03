@@ -9,6 +9,8 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import path from 'path';
 import sanitize from 'sanitize-filename';
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
 
 import { createStreamId, detectLanguage, getExtensionByMimeType, HOST, remuxAudio, renderMessage } from './common.js';
 import {
@@ -45,7 +47,10 @@ const WRITE_REGEX = /`*\s*WRITE\(([^)]*)\)\s*`*([^`]*)`+/g;
 */
 
 function getUser(req) {
-    return req.session.user.emails[0].value;
+    if (req.session && req.session.user && req.session.user.emails && req.session.user.emails[0]) {
+        return req.session.user.emails[0].value;
+    }
+    return null;
 }
 
 function ensureAuthenticated(req, res, next) {
@@ -67,6 +72,10 @@ process
     });
 
 async function main() {
+    const argv = yargs(hideBin(process.argv))
+        .option('auth', { type: 'boolean', default: true, description: 'Run with auth enabled' })
+        .strictOptions()
+        .argv;
     const app = express();
     const voices = await getVoices();
 
@@ -129,7 +138,11 @@ async function main() {
 
     // ***** NOTE ***** Authenticated endpoints must go below this line, while unauthenticated endpoints
     // must go above this line!!!
-    app.use(ensureAuthenticated);
+    if (argv.auth) {
+        app.use(ensureAuthenticated);
+    } else {
+        console.warn('Running with authentication disabled!');
+    }
 
     const upload = multer({ dest: UPLOAD_FOLDER + '/' });
     app.post('/transcribe', upload.single('audio'), async (req, res) => {
