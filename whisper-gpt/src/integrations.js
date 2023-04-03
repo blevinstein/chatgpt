@@ -520,7 +520,7 @@ export async function generateImageWithStableDiffusion(description, options, use
     const [width, height] = (options.imageSize || DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE)
         .split('x').map(Number);
     const inferId = createInferId();
-    const isDreambooth = options.imageModel === 'dreambooth';
+    const isDreambooth = options.imageModel === 'dreambooth' || options.imageModel === 'dreambooth_img2img';
 
     try {
         let prompt;
@@ -535,6 +535,7 @@ export async function generateImageWithStableDiffusion(description, options, use
             prompt,
             negative_prompt: STABLE_DIFFUSION_NEGATIVE_PROMPT,
             init_image: inputImage,
+            prompt_strength: 0.5,
             samples: 1,
             width,
             height,
@@ -547,6 +548,9 @@ export async function generateImageWithStableDiffusion(description, options, use
         switch (options.imageModel) {
             case 'dreambooth':
                 endpoint = 'https://stablediffusionapi.com/api/v3/dreambooth';
+                break;
+            case 'dreambooth_img2img':
+                endpoint = 'https://stablediffusionapi.com/api/v3/dreambooth/img2img';
                 break;
             case 'stableDiffusion':
                 endpoint = 'https://stablediffusionapi.com/api/v3/text2img';

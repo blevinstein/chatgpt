@@ -29,4 +29,5 @@
 
 "imageTransformationModel" / "imageTransformationModelId"
     for StableDiffusion, imageTransformationModel = "stableDiffusion_img2img"
-    (Replicate is not currently working)
+    for Dreambooth, imageTransformationModel = "dreambooth_img2img", and set imageTransformationModelId
+        to the ID of the Dreambooth model you want

@@ -51,7 +51,10 @@ function addChatMessage(username, listItem, html, inferId) {
         // Add alt text to title in server-rendered images, so you can see text by hovering.
         img.title = img.alt;
 
-        enableSyntheticDragAndDrop(img, img.src);
+        // If supported in this view, register drag-and-drop handler for mobile
+        if (window.enableSyntheticDragAndDrop) {
+            enableSyntheticDragAndDrop(img, img.src);
+        }
     });
 
     // Enable manual image generation retry
@@ -335,7 +338,7 @@ async function fetchChatLogs(inferId) {
     messageImages = responseData.generatedImages;
 
     // Load the input image, if specified and supported by the editor environment
-    if (responseData.inputImage && setSubjectImage) {
+    if (responseData.inputImage && window.setSubjectImage) {
         setSubjectImage(responseData.inputImage);
     }
 
