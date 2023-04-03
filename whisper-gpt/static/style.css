@@ -439,6 +439,10 @@ footer {
     flex-direction: column;
 }
 
+.contents img {
+    touch-action: none;
+}
+
 @media (max-width: 700px) {
     #controlBar {
         flex-direction: column;

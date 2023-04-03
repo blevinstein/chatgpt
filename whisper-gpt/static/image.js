@@ -103,7 +103,6 @@ function enableSyntheticDragAndDrop(element, payload) {
     // Prevent default actions on touch, to allow drag-and-drop
     let lastTouch;
     const recordTouch = (event) => {
-        doNothing(event);
         if (event.touches && event.touches.length > 0) {
             lastTouch = event.touches[0];
         }
