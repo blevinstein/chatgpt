@@ -335,6 +335,7 @@ async function main() {
                 inferId,
                 lastModified: log.LastModified,
                 selfLink: `${HOST}?inferId=${inferId}`,
+                logLink: `${HOST}/chatLog/${inferId}`,
             };
         });
         chatLogs.sort((a, b) => a.lastModified < b.lastModified ? 1 : -1);

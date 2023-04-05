@@ -40,7 +40,8 @@ function addChatMessage(username, listItem, html, inferId) {
     const shareButton = messageElement.querySelector('.shareButton');
     if (inferId) {
         bindClick(shareButton, () => {
-            navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?inferId=${inferId}`);
+            navigator.clipboard.writeText(
+                `${window.location.origin}${window.location.pathname}?inferId=${inferId}`);
             showMessageBox(shareButton, 'Copied link to clipboard!');
         });
     } else {
@@ -127,16 +128,22 @@ async function reloadImage(event) {
         });
 
         if (!response.ok) throw response.statusText;
-        // NOTE: There should only be one image returned in `generatedImages` here, because there
-        // was only one image in the fragment rendered.
         const { html, generatedImages } = await response.json();
+        // There should only be one image returned in `generatedImages` here, because there
+        // was only one image pattern in the fragment rendered.
+        if (generatedImages.length < 1) {
+            throw new Error('No generatedImages found');
+        } else if (generatedImages.length > 1) {
+            console.error(
+                `Expected 1 generatedImage but found ${generatedImages.length}`, generatedImages);
+        }
         messageImages.push(generatedImages[0]);
 
         span.innerHTML = html;
         span.classList.remove('imageRetry');
 
         const inferId = span.closest('.message').dataset.inferId;
-        if (inferId) {
+        if (inferId && generatedImages[0].imageFile) {
             // Report image generation to server so it can fix chat logs
             await fetch(`/chatLog/${inferId}/updateImage`, {
                 method: 'POST',
@@ -200,7 +207,10 @@ async function requestChatResponse(systemPrompt, messages) {
                 const searchParams = new URLSearchParams(window.location.search);
                 searchParams.set('inferId', inferId);
                 setInferId(inferId);
-                history.pushState(null, '', window.location.pathname + '?' + searchParams.toString());
+                history.pushState(
+                    null,
+                    '',
+                    window.location.pathname + '?' + searchParams.toString());
             });
             // Second response: chat text is available, but images are not yet loaded (if any)
             chatStream.addEventListener('chatResponse', async (event) => {
@@ -328,7 +338,8 @@ async function fetchChatLogs(inferId) {
     // Clear preset prompts, and set the system prompt.
     selectedPrompts = [];
     updateSystemPrompt();
-    Array.from(document.getElementsByClassName('selected')).forEach(e => e.classList.remove('selected'));
+    Array.from(document.getElementsByClassName('selected')).forEach(e =>
+        e.classList.remove('selected'));
     const responseData = await response.json();
     document.getElementById('systemInput').value = responseData.input.messages[0].content;
 
