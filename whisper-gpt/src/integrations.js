@@ -229,6 +229,7 @@ export function synthesizeSpeech(text, language, voice) {
     });
 }
 
+// TODO: remove `images` argument, not needed with new format
 export async function* generateChatCompletion(messages, images, options = {}, user, inputImage) {
     const model = options.chatModel || DEFAULT_CHAT_MODEL;
     const input = {
@@ -244,9 +245,27 @@ export async function* generateChatCompletion(messages, images, options = {}, us
     const reply = response.data.choices[0].message.content;
     console.log(`Assistant reply: ${reply} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset}) [${inferId}] (${(responseTime/1000).toFixed(2)}s)`);
 
-    yield reply;
+    const parsedReply = JSON.parse(reply);
+    yield parsedReply;
 
-    const [ updatedReply, generatedImages ] = await generateInlineImages(reply, options, user, inputImage);
+    const promises = parsedReply.map(element => {
+        if (typeof element === 'string') {
+            return Promise.resolve(element);
+        } else if (typeof element === 'object') {
+            switch (element.type) {
+                case 'image':
+                    return generateImageWithRetry(element.prompt, options, user)
+                        .then((imageFile) => ({ ...element, imageFile }));
+                case 'editImage':
+                    return generateImageWithRetry(element.prompt, options, user, inputImage)
+                        .then((imageFile) => ({ ...element, imageFile }));
+                default:
+                    throw new Error(`Element of unexpected type: ${JSON.stringify(element)}`);
+            }
+        }
+    });
+    const updatedReply = Array.from(await Promise.all(promises));
+    yield updatedReply;
     await uploadFileToS3(
         LOGS_BUCKET,
         `chat-${inferId}.json`,
@@ -258,15 +277,14 @@ export async function* generateChatCompletion(messages, images, options = {}, us
             responseTime,
             user,
             inputImage,
-            generatedImages: (images || []).concat(generatedImages),
+            updatedReply,
             options,
             selfLink: `${HOST}?inferId=${inferId}`,
         }, null, 4),
         'application/json');
-
-    yield { updatedReply, generatedImages };
 }
 
+// TODO: update for json format
 export async function updateImageInChatLog(inferId, pattern, imageFile) {
     console.log(`Updating chatLog ${inferId} to add image: ${pattern} => ${imageFile}`);
     const chatLog = JSON.parse(
@@ -281,40 +299,40 @@ export async function updateImageInChatLog(inferId, pattern, imageFile) {
         'application/json');
 }
 
-// TODO: Add a config option or argument to switch between DALL-E and Stable Diffusion
-export async function generateInlineImages(message, options = {}, user, inputImage) {
-    let generateImage = (options) => {
-        switch (options.imageModel) {
-            case 'dallE':
-                return generateImageWithDallE;
-            case 'replicate':
-                return generateImageWithReplicate;
-            case 'stableDiffusion':
-            case 'stableDiffusion_img2img':
-                return generateImageWithStableDiffusion;
-            case 'dreambooth':
-            case 'dreambooth_img2img':
-                return generateImageWithStableDiffusion;
-            default:
-                console.error(`Unexpected imageModel specified: ${options.imageModel}`);
-                return generateImageWithStableDiffusion;
-        }
-    };
-    const generateImageWithRetry = async (description, options, user, inputImage) => {
-        try {
-            return await backOff(() => generateImage(options)(description, options, user, inputImage), {
-                numOfAttempts: 3,
-                startingDelay: 2000,
-                retry: (error, attemptNumber) => {
-                    console.error(`Image generation failed with ${options.imageModel}, attempt ${attemptNumber}`);
-                    return true;
-                },
-            });
-        } catch (error) {
-            console.error('Image generation failed:', error);
-        }
+function getGenerateImageFunction(options) {
+    switch (options.imageModel) {
+        case 'dallE':
+            return generateImageWithDallE;
+        case 'replicate':
+            return generateImageWithReplicate;
+        case 'stableDiffusion':
+        case 'stableDiffusion_img2img':
+            return generateImageWithStableDiffusion;
+        case 'dreambooth':
+        case 'dreambooth_img2img':
+            return generateImageWithStableDiffusion;
+        default:
+            console.error(`Unexpected imageModel specified: ${options.imageModel}`);
+            return generateImageWithStableDiffusion;
     }
+};
 
+async function generateImageWithRetry(description, options, user, inputImage) {
+    try {
+        return await backOff(() => getGenerateImageFunction(options)(description, options, user, inputImage), {
+            numOfAttempts: 3,
+            startingDelay: 2000,
+            retry: (error, attemptNumber) => {
+                console.error(`Image generation failed with ${options.imageModel}, attempt ${attemptNumber}`);
+                return true;
+            },
+        });
+    } catch (error) {
+        console.error('Image generation failed:', error);
+    }
+};
+
+export async function generateInlineImages(message, options = {}, user, inputImage) {
     // Generate images in parallel using Promise.all
     const createImagePromises = Array.from(message.matchAll(IMAGE_REGEX))
         .map(([pattern, description]) => {

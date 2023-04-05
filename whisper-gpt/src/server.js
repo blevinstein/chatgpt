@@ -12,7 +12,7 @@ import sanitize from 'sanitize-filename';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
-import { createStreamId, detectLanguage, getExtensionByMimeType, HOST, remuxAudio, renderMessage } from './common.js';
+import { createStreamId, detectLanguage, getExtensionByMimeType, HOST, remuxAudio, renderJsonReply } from './common.js';
 import {
     downloadFileFromS3,
     EDIT_REGEX,
@@ -224,20 +224,9 @@ async function main() {
     });
 
     app.post('/renderMessage', async (req, res) => {
-        let { message, generatedImages, inputImage, options = {} } = req.body;
-
-        let renderedMessage = message;
-        if (generatedImages) {
-            // This is a previously-generated chat message, so the generated images are already online.
-            renderedMessage = renderMessage(message, generatedImages);
-        } else {
-            // Otherwise, generate new images using the appropriate API.
-            [ renderedMessage, generatedImages ] = await generateInlineImages(message, options, getUser(req), inputImage);
-        }
-
-        // Render markdown to HTML for display in the browser
-        const html = markdown.render(renderedMessage);
-        res.json({ html, generatedImages });
+        let { message, inputImage, options = {} } = req.body;
+        const html = renderJsonReply(message);
+        res.json({ html });
     });
 
     // Chat step 1: send a POST request here with your argument payload
@@ -278,45 +267,23 @@ async function main() {
 
             const { value: reply } = await chatCompletion.next();
             // Detect language to assist speech synthesis on frontend
-            const language = await detectLanguage(reply);
+            const text = reply.filter(r => typeof r === 'string').join('\n\n');
+            const language = await detectLanguage(text);
             // Immediately send the result to the frontend. At this point, the images are not yet
             // rendered.
-            const spinner = '\n\n<div class="spinner"></div>\n\n';
             writeEvent('chatResponse', {
                 language,
-                text: reply,
-                html: markdown.render(reply)
-                    .replaceAll(IMAGE_REGEX, spinner)
-                    .replaceAll(EDIT_REGEX, spinner),
+                raw: reply,
+                html: renderJsonReply(reply, true),
             });
 
-            // Apply code assistant hooks
-            /*
-            for (let [_, unsafePath] of Array.from(reply.matchAll(LS_REGEX))) {
-                const command = `ls ${path.join(WORKSPACE_FOLDER, sanitize(unsafePath))}`;
-                const output = child_process.execSync(command);
-                updatedReply += `\n\n    $> ${command}\n\n    ${output}`;
-            }
-            for (let [_, unsafePath] of Array.from(reply.matchAll(CAT_REGEX))) {
-                const command = `cat ${path.join(WORKSPACE_FOLDER, sanitize(unsafePath))}`;
-                const output = child_process.execSync(command);
-                updatedReply += `\n\n    $> ${command}\n\n    ${output}`;
-            }
-            for (let [_, unsafePath, contents] of Array.from(reply.matchAll(WRITE_REGEX))) {
-                fs.writeFileSync(
-                    path.join(WORKSPACE_FOLDER, sanitize(unsafePath)),
-                    contents);
-                updatedReply += `\n\n    ## wrote data to ${sanitize(unsafePath)}!`;
-            }
-            */
-
-            const { updatedReply, generatedImages } = (await chatCompletion.next()).value;
+            const { value: updatedReply } = await chatCompletion.next();
+            const updatedText = updatedReply.filter(r => typeof r === 'string').join('\n\n');
             // Now, send the full result with images to the frontend.
             writeEvent('imagesLoaded', {
                 language,
-                text: updatedReply,
-                html: markdown.render(updatedReply),
-                generatedImages,
+                raw: updatedReply,
+                html: renderJsonReply(updatedReply, false),
             });
         } catch (error) {
             console.error('Error completing chat:', error);
@@ -363,23 +330,35 @@ async function main() {
 
     app.get('/imageLog/:inferId', async (req, res) => {
         const { inferId } = req.params;
-        const imageLog = JSON.parse(
-            (await downloadFileFromS3('whisper-gpt-logs', `image-${inferId}.json`)).Body.toString());
-        res.status(200).json(imageLog);
+        try {
+            const imageLog = JSON.parse(
+                (await downloadFileFromS3('whisper-gpt-logs', `image-${inferId}.json`)).Body.toString());
+            res.status(200).json(imageLog);
+        } catch (error) {
+            res.status(500).send(error.message);
+        }
     });
 
     app.get('/chatLog/:inferId', async (req, res) => {
         const { inferId } = req.params;
-        const chatLog = JSON.parse(
-            (await downloadFileFromS3('whisper-gpt-logs', `chat-${inferId}.json`)).Body.toString());
-        res.status(200).json(chatLog);
+        try {
+            const chatLog = JSON.parse(
+                (await downloadFileFromS3('whisper-gpt-logs', `chat-${inferId}.json`)).Body.toString());
+            res.status(200).json(chatLog);
+        } catch (error) {
+            res.status(500).send(error.message);
+        }
     });
 
     app.post('/chatLog/:inferId/updateImage', async (req, res) => {
         const { inferId } = req.params;
         const { pattern, imageFile } = req.body;
-        await updateImageInChatLog(inferId, pattern, imageFile);
-        res.status(200).json('Done');
+        try {
+            await updateImageInChatLog(inferId, pattern, imageFile);
+            res.status(200).json('Done');
+        } catch (error) {
+            res.status(500).send(error.message);
+        }
     });
 
     app.get('/', function (req, res) {

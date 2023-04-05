@@ -8,10 +8,6 @@ let inputImage;
 // Cache of text prompts fetched from the server
 const promptCache = {};
 
-// NOTE: Keep in sync with src/integrations.js
-const IMAGE_REGEX = /IMAGE\s?\d{0,3}:?\s?\[([^\[\]<>]*)\]/gi;
-const EDIT_REGEX = /EDIT\s?\d{0,3}:?\s?\[([^\[\]<>]*)\]/gi;
-
 const MESSAGE_DURATION = 6000;
 function showMessageBox(buttonSource, message) {
     const messageBox = buttonSource.parentElement.querySelector('.messageBox');
@@ -227,17 +223,16 @@ async function requestChatResponse(systemPrompt, messages) {
             });
             // Second response: chat text is available, but images are not yet loaded (if any)
             chatStream.addEventListener('chatResponse', async (event) => {
-                const { text, language, html } = JSON.parse(event.data);
-                console.log(`Chat response successful: ${text}`);
+                const { raw, language, html } = JSON.parse(event.data);
+                console.log(`Chat response successful: ${JSON.stringify(raw)}`);
                 addChatMessage('assistant', chatListItem, html, inferId);
-                messages.push({ role: 'assistant', content: text });
-                await announceMessage(text.replaceAll(IMAGE_REGEX, '').replaceAll(EDIT_REGEX, ''), language);
+                messages.push({ role: 'assistant', content: JSON.stringify(raw) });
+                await announceMessage(raw.filter(elem => typeof elem === 'string').join('\n'), language);
             });
             // Third response: images are loaded and the full response is available
             chatStream.addEventListener('imagesLoaded', async (event) => {
-                const { text, language, html, generatedImages } = JSON.parse(event.data);
-                console.log(`Images rendered successfully: ${text}`);
-                messageImages.push(...generatedImages);
+                const { raw, language, html } = JSON.parse(event.data);
+                console.log(`Images rendered successfully: ${JSON.stringify(raw)}`);
                 addChatMessage('assistant', chatListItem, html, inferId);
                 document.getElementById('sendTextButton').scrollIntoView();
                 chatStream.close();
@@ -359,7 +354,6 @@ async function fetchChatLogs(inferId) {
     // Load messages, except the system message, including the response message.
     messages = responseData.input.messages.slice(1).concat(
         responseData.response.choices[0].message);
-    messageImages = responseData.generatedImages;
 
     // Load the input image, if specified and supported by the editor environment
     if (responseData.inputImage && window.setSubjectImage) {
@@ -378,7 +372,6 @@ async function fetchChatLogs(inferId) {
             body: JSON.stringify({
                 message: message.content,
                 options: getOptions(),
-                generatedImages: responseData.generatedImages,
             }),
         });
 

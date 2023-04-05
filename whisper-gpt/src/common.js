@@ -2,6 +2,13 @@ import crypto from 'crypto';
 
 import { detect } from 'langdetect';
 import ffmpeg from 'fluent-ffmpeg';
+import MarkdownIt from 'markdown-it';
+
+const markdown = MarkdownIt({
+    html: true,
+    linkify: false,
+    typographer: false,
+});
 
 export function createStreamId() {
     return crypto.randomBytes(16).toString('hex');
@@ -70,6 +77,7 @@ const LANGUAGE_TO_COMMON_COUNTRY = {
   'mt': 'mt-MT', // Maltese
 };
 
+const SPINNER_HTML = '<div class="spinner"></div>';
 
 export function getExtensionByMimeType(mimeType) {
     const extensions = {
@@ -86,9 +94,11 @@ export function getExtensionByMimeType(mimeType) {
 }
 
 export async function detectLanguage(text) {
-  const languages = detect(text);
-  console.log(`Inferred languages: ${JSON.stringify(languages)}`);
-  return LANGUAGE_TO_COMMON_COUNTRY[languages[0].lang] || languages[0].lang;
+    const languages = detect(text);
+    console.log(`Inferred languages: ${JSON.stringify(languages)}`);
+    if (languages && languages.length > 0) {
+        return LANGUAGE_TO_COMMON_COUNTRY[languages[0].lang] || languages[0].lang;
+    }
 }
 
 export function remuxAudio(input, output) {
@@ -121,14 +131,23 @@ export function getAudioDuration(filePath) {
     });
 }
 
-export function renderMessage(message, generatedImages) {
-    let renderedMessage = message;
-    for (let { pattern, imageFile } of generatedImages) {
-        if (imageFile) {
-            renderedMessage = renderedMessage.replace(pattern, `![${pattern}](${imageFile})`);
-        } else {
-            renderedMessage = renderedMessage.replace(pattern, `<span class="imageRetry">${pattern}</span>`);
+export function renderJsonReply(reply, loading) {
+    let markdownReply = reply.map(element => {
+        if (typeof element === 'string') {
+            return element;
         }
-    }
-    return renderedMessage;
+        switch (element.type) {
+            case 'image':
+            case 'editImage':
+                if (element.imageFile) {
+                    return `![${element.prompt}](${element.imageFile})`;
+                } else if (loading) {
+                    return SPINNER_HTML;
+                } else {
+                    return `<span class="imageRetry">${JSON.stringify(element.prompt)}</span>`;
+                }
+                break;
+        }
+    }).join('\n\n');
+    return markdown.render(markdownReply);
 }

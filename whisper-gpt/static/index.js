@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     registerChatControls();
     registerSystemPromptControls();
     await registerOptionsControls();
-    await fetchPrompts(['dan', 'image']);
+    await fetchPrompts(['dan', 'image', 'json_output']);
 
     // Display server build time:
     await fetchBuildTime();
