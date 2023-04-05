@@ -609,7 +609,8 @@ export async function generateImageWithStableDiffusion(description, options, use
     }
 }
 
-// Uses Replicate and blip-2 for image interpretation
+// Uses Replicate and blip-2 for image interpretation.
+// `question` is optional, default behavior is describing the image
 export async function interpretImage(question, options, user, inputImage) {
     try {
         const input = {
