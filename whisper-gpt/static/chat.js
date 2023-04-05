@@ -10,6 +10,7 @@ const promptCache = {};
 
 // NOTE: Keep in sync with src/integrations.js
 const IMAGE_REGEX = /IMAGE\s?\d{0,3}:?\s?\[([^\[\]<>]*)\]/gi;
+const EDIT_REGEX = /EDIT\s?\d{0,3}:?\s?\[([^\[\]<>]*)\]/gi;
 
 const MESSAGE_DURATION = 6000;
 function showMessageBox(buttonSource, message) {
@@ -230,7 +231,7 @@ async function requestChatResponse(systemPrompt, messages) {
                 console.log(`Chat response successful: ${text}`);
                 addChatMessage('assistant', chatListItem, html, inferId);
                 messages.push({ role: 'assistant', content: text });
-                await announceMessage(text.replaceAll(IMAGE_REGEX, ''), language);
+                await announceMessage(text.replaceAll(IMAGE_REGEX, '').replaceAll(EDIT_REGEX, ''), language);
             });
             // Third response: images are loaded and the full response is available
             chatStream.addEventListener('imagesLoaded', async (event) => {
