@@ -132,7 +132,7 @@ async function reloadImage(event) {
         // There should only be one image returned in `generatedImages` here, because there
         // was only one image pattern in the fragment rendered.
         if (generatedImages.length < 1) {
-            throw new Error('No generatedImages found');
+            throw new Error('No generatedImage found');
         } else if (generatedImages.length > 1) {
             console.error(
                 `Expected 1 generatedImage but found ${generatedImages.length}`, generatedImages);
@@ -141,6 +141,7 @@ async function reloadImage(event) {
 
         span.innerHTML = html;
         span.classList.remove('imageRetry');
+        span.removeEventListener('click', reloadImage);
 
         const inferId = span.closest('.message').dataset.inferId;
         if (inferId && generatedImages[0].imageFile) {
@@ -152,7 +153,7 @@ async function reloadImage(event) {
             });
         }
     } catch (error) {
-        console.log('Error retrying image:', error);
+        console.error('Error retrying image:', error);
         // Restore span
         span.textContent = messageFragment;
         bindClick(span, reloadImage);

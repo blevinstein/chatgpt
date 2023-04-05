@@ -535,7 +535,7 @@ export async function generateImageWithStableDiffusion(description, options, use
             prompt,
             negative_prompt: STABLE_DIFFUSION_NEGATIVE_PROMPT,
             init_image: inputImage,
-            prompt_strength: 0.5,
+            prompt_strength: inputImage ? 0.5 : undefined,
             samples: 1,
             width,
             height,
