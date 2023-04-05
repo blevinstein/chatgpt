@@ -20,6 +20,22 @@ function showMessageBox(buttonSource, message) {
     setTimeout(() => messageBox.classList.remove('show'), MESSAGE_DURATION);
 }
 
+function postProcessChat(chatElement) {
+    chatElement.querySelectorAll('img').forEach(img => {
+        // Add alt text to title in server-rendered images, so you can see text by hovering.
+        img.title = img.alt;
+
+        // If supported in this view, register drag-and-drop handler for mobile
+        if (window.enableSyntheticDragAndDrop) {
+            enableSyntheticDragAndDrop(img, img.src);
+        }
+    });
+
+    // Enable manual image generation retry
+    chatElement.querySelectorAll('.imageRetry')
+        .forEach(span => bindClick(span, reloadImage));
+}
+
 function addChatMessage(username, listItem, html, inferId) {
     // Clear existing contents
     listItem.innerHTML = '';
@@ -48,20 +64,7 @@ function addChatMessage(username, listItem, html, inferId) {
         shareButton.classList.add('hidden');
     }
 
-    messageElement.querySelectorAll('.contents img').forEach(img => {
-        // Add alt text to title in server-rendered images, so you can see text by hovering.
-        img.title = img.alt;
-
-        // If supported in this view, register drag-and-drop handler for mobile
-        if (window.enableSyntheticDragAndDrop) {
-            enableSyntheticDragAndDrop(img, img.src);
-        }
-    });
-
-    // Enable manual image generation retry
-    messageElement.querySelectorAll('.contents .imageRetry')
-        .forEach(span => bindClick(span, reloadImage));
-
+    postProcessChat(messageElement.querySelector('.contents'));
     listItem.appendChild(messageElement);
 }
 
@@ -108,8 +111,6 @@ async function sendTextMessage() {
 // Request re-rendering of a particular image in a chat response.
 async function reloadImage(event) {
     const span = event.target;
-    bindClick(span, reloadImage);
-
     const messageFragment = span.textContent;
 
     // Replace contents with a spinner
@@ -137,14 +138,25 @@ async function reloadImage(event) {
             console.error(
                 `Expected 1 generatedImage but found ${generatedImages.length}`, generatedImages);
         }
-        messageImages.push(generatedImages[0]);
 
+        if (!generatedImages[0].imageFile) {
+            throw new Error('No imageFile found');
+        }
+
+        // Update messageImages with newly generated image
+        messageImages = messageImages.filter(({ pattern }) => pattern != generatedImages[0].pattern);
+        messageImages.push(generatedImages[0]);
+        // DEBUG
+        console.log(messageImages);
+
+        // Retry was successful, we can remove the retry handler and styling.
         span.innerHTML = html;
         span.classList.remove('imageRetry');
         span.removeEventListener('click', reloadImage);
+        postProcessChat(span);
 
         const inferId = span.closest('.message').dataset.inferId;
-        if (inferId && generatedImages[0].imageFile) {
+        if (inferId) {
             // Report image generation to server so it can fix chat logs
             await fetch(`/chatLog/${inferId}/updateImage`, {
                 method: 'POST',
@@ -156,7 +168,6 @@ async function reloadImage(event) {
         console.error('Error retrying image:', error);
         // Restore span
         span.textContent = messageFragment;
-        bindClick(span, reloadImage);
     }
 }
 

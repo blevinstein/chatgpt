@@ -60,6 +60,7 @@ const STABILITY_AI_KEY = process.env.STABILITY_AI_KEY;
 
 const DEFAULT_IMG2IMG_MODEL = 'stableDiffusion_img2img';
 const DEFAULT_IMG2IMG_MODEL_ID = '';
+const DEFAULT_IMG2IMG_PROMPT_STRENGTH = 0.5;
 
 const OPENAI_CHAT_PRICE = {
     // Costs per token
@@ -292,20 +293,27 @@ export async function generateInlineImages(message, options = {}, user, inputIma
             case 'stableDiffusion_img2img':
                 return generateImageWithStableDiffusion;
             case 'dreambooth':
+            case 'dreambooth_img2img':
                 return generateImageWithStableDiffusion;
             default:
                 console.error(`Unexpected imageModel specified: ${options.imageModel}`);
                 return generateImageWithStableDiffusion;
         }
     };
-    const generateImageWithRetry = (description, options, user, inputImage) =>
-        backOff(() => generateImage(options)(description, options, user, inputImage), {
-            numOfAttempts: 5,
-            startingDelay: 1000,
-            retry: (error, attemptNumber) => {
-                console.error(`Image generation failed, attempt ${attemptNumber}:`, error);
-            },
-        });
+    const generateImageWithRetry = async (description, options, user, inputImage) => {
+        try {
+            return await backOff(() => generateImage(options)(description, options, user, inputImage), {
+                numOfAttempts: 3,
+                startingDelay: 2000,
+                retry: (error, attemptNumber) => {
+                    console.error(`Image generation failed with ${options.imageModel}, attempt ${attemptNumber}`);
+                    return true;
+                },
+            });
+        } catch (error) {
+            console.error('Image generation failed:', error);
+        }
+    }
 
     // Generate images in parallel using Promise.all
     const createImagePromises = Array.from(message.matchAll(IMAGE_REGEX))
@@ -339,44 +347,63 @@ export async function generateInlineImages(message, options = {}, user, inputIma
 }
 
 export async function generateImageWithReplicate(description, options, user, inputImage) {
-    try {
-        let input;
-        const modelId = options.imageModelId || DEFAULT_REPLICATE_MODEL;
-        switch (modelId) {
-            case 'stableDiffusion_21':
-            case 'stableDiffusion_21_fast':
-                input = {
-                    prompt: description,
-                    negative_prompt: STABLE_DIFFUSION_NEGATIVE_PROMPT,
-                    image_dimensions: options.imageSize || DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE,
-                };
-                break;
-            case 'latentDiffusion':
-                input = {
-                    prompt: description,
-                    n_samples: 1,
-                };
-                break;
-            case 'img2img':
-                input = {
-                    image: inputImage,
-                    prompt: description,
-                    negative_prompt: STABLE_DIFFUSION_NEGATIVE_PROMPT,
-                    image_dimensions: options.imageSize || DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE,
-                };
-                break;
-            default:
-                throw new Error(`Unexpected imageModelId: ${options.imageModelId}`);
-        }
-        const generateInput = {
-            version: REPLICATE_MODELS[modelId],
-            input,
-        };
+    let input;
+    const modelId = options.imageModelId || DEFAULT_REPLICATE_MODEL;
+    switch (modelId) {
+        case 'stableDiffusion_21':
+        case 'stableDiffusion_21_fast':
+            input = {
+                prompt: description,
+                negative_prompt: STABLE_DIFFUSION_NEGATIVE_PROMPT,
+                image_dimensions: options.imageSize || DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE,
+            };
+            break;
+        case 'latentDiffusion':
+            input = {
+                prompt: description,
+                n_samples: 1,
+            };
+            break;
+        case 'img2img':
+            input = {
+                image: inputImage,
+                prompt: description,
+                negative_prompt: STABLE_DIFFUSION_NEGATIVE_PROMPT,
+                prompt_strength: DEFAULT_IMG2IMG_PROMPT_STRENGTH,
+                image_dimensions: options.imageSize || DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE,
+            };
+            break;
+        default:
+            throw new Error(`Unexpected imageModelId: ${options.imageModelId}`);
+    }
+    const generateInput = {
+        version: REPLICATE_MODELS[modelId],
+        input,
+    };
 
-        const startTime = performance.now();
-        const initiateResponse = await axios.post(
-            'https://api.replicate.com/v1/predictions',
-            generateInput,
+    const startTime = performance.now();
+    const initiateResponse = await axios.post(
+        'https://api.replicate.com/v1/predictions',
+        generateInput,
+        {
+            headers: {
+                'Authorization': `Token ${REPLICATE_API_TOKEN}`,
+                'Content-Type': 'application/json',
+            },
+        }
+    );
+
+    const predictionId = initiateResponse.data.id;
+
+    let predictionStatus = 'pending';
+    let downloadUrl;
+    let statusResponse;
+
+    while (predictionStatus !== 'succeeded') {
+        await new Promise(resolve => setTimeout(resolve, REPLICATE_POLL_TIME));
+
+        statusResponse = await axios.get(
+            `https://api.replicate.com/v1/predictions/${predictionId}`,
             {
                 headers: {
                     'Authorization': `Token ${REPLICATE_API_TOKEN}`,
@@ -385,51 +412,171 @@ export async function generateImageWithReplicate(description, options, user, inp
             }
         );
 
-        const predictionId = initiateResponse.data.id;
+        predictionStatus = statusResponse.data.status;
 
-        let predictionStatus = 'pending';
-        let downloadUrl;
-        let statusResponse;
-
-        while (predictionStatus !== 'succeeded') {
-            await new Promise(resolve => setTimeout(resolve, REPLICATE_POLL_TIME));
-
-            statusResponse = await axios.get(
-                `https://api.replicate.com/v1/predictions/${predictionId}`,
-                {
-                    headers: {
-                        'Authorization': `Token ${REPLICATE_API_TOKEN}`,
-                        'Content-Type': 'application/json',
-                    },
-                }
-            );
-
-            predictionStatus = statusResponse.data.status;
-
-            if (predictionStatus === 'failed') {
-                throw new Error('Prediction failed');
-            }
-
-            if (predictionStatus === 'succeeded') {
-                switch (modelId) {
-                    case 'stableDiffusion_21':
-                    case 'stableDiffusion_21_fast':
-                        downloadUrl = statusResponse.data.output[0];
-                        break;
-                    case 'latentDiffusion':
-                        downloadUrl = statusResponse.data.output[0].image;
-                        break;
-                }
-            }
+        if (predictionStatus === 'failed') {
+            throw new Error('Prediction failed');
         }
 
+        if (predictionStatus === 'succeeded') {
+            switch (modelId) {
+                case 'stableDiffusion_21':
+                case 'stableDiffusion_21_fast':
+                    downloadUrl = statusResponse.data.output[0];
+                    break;
+                case 'latentDiffusion':
+                    downloadUrl = statusResponse.data.output[0].image;
+                    break;
+            }
+        }
+    }
+
+    const imageResponse = await axios.get(downloadUrl, { responseType: 'arraybuffer' });
+    const responseTime = performance.now() - startTime;
+    const cost = statusResponse.data.metrics.predict_time * REPLICATE_COST[modelId];
+
+    const inferId = createInferId();
+    const imageFile = `${inferId}.png`;
+    const imageUrl = `${IMAGE_HOST}/${imageFile}`;
+
+    await uploadFileToS3(
+        IMAGE_BUCKET,
+        imageFile,
+        Buffer.from(imageResponse.data),
+        'image/png');
+    await uploadFileToS3(
+        LOGS_BUCKET,
+        `image-${inferId}.json`,
+        JSON.stringify({
+            type: 'createImage',
+            model: 'replicate',
+            modelId,
+            input: generateInput,
+            response: statusResponse.data,
+            cost,
+            predictTime: statusResponse.data.metrics.predict_time,
+            responseTime,
+            imageUrl,
+            user,
+            options,
+        }, null, 4),
+        'application/json');
+
+    console.log(`Image generated by Replicate (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(3)}${COLOR.reset})[${inferId}] (${(responseTime/1000).toFixed(2)}s)`);
+    return imageUrl;
+}
+
+export async function generateImageWithDallE(description, options, user) {
+    const imageSize = options.imageSize || OPENAI_IMAGE_SIZE;
+    const generateInput = {
+        prompt: description,
+        n: 1,
+        size: imageSize,
+        user: hashValue(user),
+    };
+    const startTime = performance.now();
+    const generateResponse = await openai.createImage(generateInput);
+
+    if (generateResponse
+            && generateResponse.data
+            && generateResponse.data.data
+            && generateResponse.data.data[0]) {
+        const downloadUrl = generateResponse.data.data[0].url;
         const imageResponse = await axios.get(downloadUrl, { responseType: 'arraybuffer' });
         const responseTime = performance.now() - startTime;
-        const cost = statusResponse.data.metrics.predict_time * REPLICATE_COST[modelId];
 
         const inferId = createInferId();
         const imageFile = `${inferId}.png`;
         const imageUrl = `${IMAGE_HOST}/${imageFile}`;
+        const cost = OPENAI_IMAGE_PRICE[imageSize];
+
+        await uploadFileToS3( IMAGE_BUCKET,
+            imageFile,
+            Buffer.from(imageResponse.data),
+            'image/png');
+        await uploadFileToS3(
+            LOGS_BUCKET,
+            `image-${inferId}.json`,
+            JSON.stringify({
+                type: 'createImage',
+                model: 'DALL-E',
+                input: generateInput,
+                response: generateResponse.data,
+                cost,
+                imageUrl,
+                responseTime,
+                user,
+                options,
+            }, null, 4),
+            'application/json');
+
+        console.log(`Image generated by DALL-E [${inferId}] (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(3)}${COLOR.reset}) (${(responseTime/1000).toFixed(2)}s)`);
+        return imageUrl;
+    } else {
+        throw new Error(`No image URL found in the response: ${JSON.stringify(generateResponse.data)}`);
+    }
+}
+
+export async function generateImageWithStableDiffusion(description, options, user, inputImage) {
+    const [width, height] = (options.imageSize || DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE)
+        .split('x').map(Number);
+    const inferId = createInferId();
+    const isDreambooth = options.imageModel === 'dreambooth' || options.imageModel === 'dreambooth_img2img';
+
+    let prompt;
+    if (isDreambooth && STABLE_DIFFUSION_PROMPT_ENHANCEMENT[options.imageModelId]) {
+        prompt = STABLE_DIFFUSION_PROMPT_ENHANCEMENT[options.imageModelId](description);
+    } else {
+        prompt = description;
+    }
+    const generateInput = {
+        key: STABILITY_AI_KEY,
+        model_id: isDreambooth ? options.imageModelId || DEFAULT_DREAMBOOTH_MODEL_ID : undefined,
+        prompt,
+        negative_prompt: STABLE_DIFFUSION_NEGATIVE_PROMPT,
+        init_image: inputImage,
+        prompt_strength: inputImage ? DEFAULT_IMG2IMG_PROMPT_STRENGTH : undefined,
+        samples: 1,
+        width,
+        height,
+        num_inference_steps: 50,
+        guidance_scale: 7.5,
+        track_id: inferId,
+    };
+
+    let endpoint;
+    switch (options.imageModel) {
+        case 'dreambooth':
+            endpoint = 'https://stablediffusionapi.com/api/v3/dreambooth';
+            break;
+        case 'dreambooth_img2img':
+            endpoint = 'https://stablediffusionapi.com/api/v3/dreambooth/img2img';
+            break;
+        case 'stableDiffusion':
+            endpoint = 'https://stablediffusionapi.com/api/v3/text2img';
+            break;
+        case 'stableDiffusion_img2img':
+            endpoint = 'https://stablediffusionapi.com/api/v3/img2img';
+            break;
+        default:
+            throw new Error(`Unexpected imageModel: ${options.imageModel}`);
+    }
+
+    const startTime = performance.now();
+    const generateResponse = await axios.post(
+        endpoint,
+        generateInput,
+        { responseType: 'json' },
+    );
+
+    if (generateResponse && generateResponse.data && generateResponse.data.output) {
+        const downloadUrl = generateResponse.data.output[0];
+        const imageResponse = await axios.get(downloadUrl, { responseType: 'arraybuffer' });
+        const responseTime = performance.now() - startTime;
+
+        const imageFile = `${inferId}.png`;
+        const imageUrl = `${IMAGE_HOST}/${imageFile}`;
+        const cost = STABLE_DIFFUSION_PRICE;
 
         await uploadFileToS3(
             IMAGE_BUCKET,
@@ -441,171 +588,21 @@ export async function generateImageWithReplicate(description, options, user, inp
             `image-${inferId}.json`,
             JSON.stringify({
                 type: 'createImage',
-                model: 'replicate',
-                modelId,
-                input: generateInput,
-                response: statusResponse.data,
-                cost,
-                predictTime: statusResponse.data.metrics.predict_time,
-                responseTime,
+                model: isDreambooth ? 'dreambooth' : 'stableDiffusion',
+                input: { ...generateInput, key: undefined },
+                response: generateResponse.data,
                 imageUrl,
+                responseTime,
                 user,
                 options,
+                cost,
             }, null, 4),
             'application/json');
 
-        console.log(`Image generated by Replicate (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(3)}${COLOR.reset})[${inferId}] (${(responseTime/1000).toFixed(2)}s)`);
+        console.log(`Image generated by Stable Diffusion (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset})  [${inferId}] (${(responseTime / 1000).toFixed(2)}s)`);
         return imageUrl;
-    } catch (error) {
-        console.error('Error generating image with Replicate:', error.message);
-    }
-}
-
-export async function generateImageWithDallE(description, options, user) {
-    try {
-        const imageSize = options.imageSize || OPENAI_IMAGE_SIZE;
-        const generateInput = {
-            prompt: description,
-            n: 1,
-            size: imageSize,
-            user: hashValue(user),
-        };
-        const startTime = performance.now();
-        const generateResponse = await openai.createImage(generateInput);
-
-        if (generateResponse
-            && generateResponse.data
-            && generateResponse.data.data
-            && generateResponse.data.data[0]) {
-            const downloadUrl = generateResponse.data.data[0].url;
-            const imageResponse = await axios.get(downloadUrl, { responseType: 'arraybuffer' });
-            const responseTime = performance.now() - startTime;
-
-            const inferId = createInferId();
-            const imageFile = `${inferId}.png`;
-            const imageUrl = `${IMAGE_HOST}/${imageFile}`;
-            const cost = OPENAI_IMAGE_PRICE[imageSize];
-
-            await uploadFileToS3( IMAGE_BUCKET,
-                imageFile,
-                Buffer.from(imageResponse.data),
-                'image/png');
-            await uploadFileToS3(
-                LOGS_BUCKET,
-                `image-${inferId}.json`,
-                JSON.stringify({
-                    type: 'createImage',
-                    model: 'DALL-E',
-                    input: generateInput,
-                    response: generateResponse.data,
-                    cost,
-                    imageUrl,
-                    responseTime,
-                    user,
-                    options,
-                }, null, 4),
-                'application/json');
-
-            console.log(`Image generated by DALL-E [${inferId}] (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(3)}${COLOR.reset}) (${(responseTime/1000).toFixed(2)}s)`);
-            return imageUrl;
-        } else {
-            console.error('No image URL found in the response');
-        }
-    } catch (error) {
-        console.error('Error generating image with DALL-E:', error.message);
-    }
-}
-
-export async function generateImageWithStableDiffusion(description, options, user, inputImage) {
-    const [width, height] = (options.imageSize || DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE)
-        .split('x').map(Number);
-    const inferId = createInferId();
-    const isDreambooth = options.imageModel === 'dreambooth' || options.imageModel === 'dreambooth_img2img';
-
-    try {
-        let prompt;
-        if (isDreambooth && STABLE_DIFFUSION_PROMPT_ENHANCEMENT[options.imageModelId]) {
-            prompt = STABLE_DIFFUSION_PROMPT_ENHANCEMENT[options.imageModelId](description);
-        } else {
-            prompt = description;
-        }
-        const generateInput = {
-            key: STABILITY_AI_KEY,
-            model_id: isDreambooth ? options.imageModelId || DEFAULT_DREAMBOOTH_MODEL_ID : undefined,
-            prompt,
-            negative_prompt: STABLE_DIFFUSION_NEGATIVE_PROMPT,
-            init_image: inputImage,
-            prompt_strength: inputImage ? 0.5 : undefined,
-            samples: 1,
-            width,
-            height,
-            num_inference_steps: 50,
-            guidance_scale: 7.5,
-            track_id: inferId,
-        };
-
-        let endpoint;
-        switch (options.imageModel) {
-            case 'dreambooth':
-                endpoint = 'https://stablediffusionapi.com/api/v3/dreambooth';
-                break;
-            case 'dreambooth_img2img':
-                endpoint = 'https://stablediffusionapi.com/api/v3/dreambooth/img2img';
-                break;
-            case 'stableDiffusion':
-                endpoint = 'https://stablediffusionapi.com/api/v3/text2img';
-                break;
-            case 'stableDiffusion_img2img':
-                endpoint = 'https://stablediffusionapi.com/api/v3/img2img';
-                break;
-            default:
-                throw new Error(`Unexpected imageModel: ${options.imageModel}`);
-        }
-
-        const startTime = performance.now();
-        const generateResponse = await axios.post(
-            endpoint,
-            generateInput,
-            { responseType: 'json' },
-        );
-
-        if (generateResponse && generateResponse.data && generateResponse.data.output) {
-            const downloadUrl = generateResponse.data.output[0];
-            const imageResponse = await axios.get(downloadUrl, { responseType: 'arraybuffer' });
-            const responseTime = performance.now() - startTime;
-
-            const imageFile = `${inferId}.png`;
-            const imageUrl = `${IMAGE_HOST}/${imageFile}`;
-            const cost = STABLE_DIFFUSION_PRICE;
-
-            await uploadFileToS3(
-                IMAGE_BUCKET,
-                imageFile,
-                Buffer.from(imageResponse.data),
-                'image/png');
-            await uploadFileToS3(
-                LOGS_BUCKET,
-                `image-${inferId}.json`,
-                JSON.stringify({
-                    type: 'createImage',
-                    model: isDreambooth ? 'dreambooth' : 'stableDiffusion',
-                    input: { ...generateInput, key: undefined },
-                    response: generateResponse.data,
-                    imageUrl,
-                    responseTime,
-                    user,
-                    options,
-                    cost,
-                }, null, 4),
-                'application/json');
-
-            console.log(`Image generated by Stable Diffusion (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset})  [${inferId}] (${(responseTime / 1000).toFixed(2)}s)`);
-            return imageUrl;
-        } else {
-            console.error('No image URL found in the response:', generateResponse.data);
-        }
-    } catch (error) {
-        console.error('Error generating image with Stable Diffusion:', error.message);
+    } else {
+        throw new Error(`No image URL found in the response: ${JSON.stringify(generateResponse.data)}`);
     }
 }
 
