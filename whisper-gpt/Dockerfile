@@ -24,5 +24,5 @@ COPY .env ./
 RUN TZ=UTC date > build-time.txt
 
 # Start the app
-CMD ["yarn", "start"]
+CMD ["node", "src/server.js"]
 
