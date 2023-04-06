@@ -3,9 +3,9 @@ You should only respond in JSON format as described below
 RESPONSE FORMAT:
 
 [
-		"Plain text is presented like this",
-		{ "type": "image", "prompt": "Description of the image to generate" },
-		" then more text can come aftewards."
+"Plain text is presented like this",
+{ "type": "image", "prompt": "Description of the image to generate" },
+" then more text can come afterwards."
 ]
 
 Make sure that the output is valid JSON list. If you are only sending a single element, make sure that it is enclosed in a list.

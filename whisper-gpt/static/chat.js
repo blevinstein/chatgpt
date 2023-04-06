@@ -1,4 +1,5 @@
 // Internal representation of chat state
+let allPrompts = [];
 let selectedPrompts = [];
 let systemPrompt = '';
 let messages = [];
@@ -231,11 +232,11 @@ async function fetchPrompts(initialPrompts = [], customPrompt = '') {
         const response = await fetch('/prompts');
         if (!response.ok) throw response.statusText;
 
-        const prompts = await response.json();
+        allPrompts = await response.json();
 
         const promptButtonContainer = document.getElementById('promptButtonContainer');
-        prompts.sort();
-        prompts.forEach(prompt => {
+        allPrompts.sort();
+        allPrompts.forEach(prompt => {
             const button = cloneTemplate('promptButton');
             button.dataset.value = prompt;
             button.textContent = prompt;
@@ -312,16 +313,32 @@ async function fetchChatLogs(inferId) {
         console.error('Error fetching chat log:', response.statusText);
         return;
     }
+    const responseData = await response.json();
 
     setInferId(inferId);
 
-    // Clear preset prompts, and set the system prompt.
-    selectedPrompts = [];
+    // Infer preset prompts from the full prompt.
+    await Promise.all(allPrompts.map(p => getPromptData(p)));
+    const fullPrompt = JSON.parse(responseData.input.messages[0].content)[0];
+    let promptIndexes = allPrompts
+        .map(p => [fullPrompt.indexOf(promptCache[p].text.trim()), p, promptCache[p].text.trim()])
+        .filter(([idx, key, value]) => idx >= 0);
+    promptIndexes.sort((a, b) => a[0] - b[0]);
+    selectedPrompts = promptIndexes.map(([idx, key, value]) => key);
+    let customPrompt = fullPrompt;
+    promptIndexes.forEach(([idx, key, value]) => {
+        customPrompt = customPrompt.replace(value, '');
+    });
+    document.getElementById('systemInput').value = customPrompt.trim();
+
     updateSystemPrompt();
-    Array.from(document.getElementsByClassName('selected')).forEach(e =>
-        e.classList.remove('selected'));
-    const responseData = await response.json();
-    document.getElementById('systemInput').value = responseData.input.messages[0].content;
+    Array.from(document.getElementsByClassName('selected')).forEach(e => {
+        if (selectedPrompts.includes(e.dataset.value)) {
+            e.classList.add('selected');
+        } else {
+            e.classList.remove('selected');
+        }
+    });
 
     // Load messages, except the system message, including the response message.
     messages = responseData.messages.concat([{ role: 'assistant', content: responseData.reply }]);
