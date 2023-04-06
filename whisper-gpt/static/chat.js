@@ -72,6 +72,7 @@ function createListItemWithSpinner() {
 }
 
 // Add a user-provided text message to the chat
+// TODO: Prevent request if another chat request is in-flight
 async function sendTextMessage() {
     const message = textInput.value.trim();
 
@@ -79,7 +80,7 @@ async function sendTextMessage() {
     if (message.length > 0) {
         try {
             const listItem = createListItemWithSpinner();
-            // TODO: Add support for user-generated image commands etc?
+            // TODO: Add support for user-generated image commands etc? Regex-based transformation?
             messages.push({ role: 'user', content: [ message ]});
             addChatMessage('user', listItem, message);
             document.getElementById('textInput').scrollIntoView();
@@ -198,15 +199,25 @@ async function requestChatResponse(systemPrompt, messages) {
             chatStream.addEventListener('chatResponse', async (event) => {
                 const { raw, language, html } = JSON.parse(event.data);
                 console.log(`Chat response successful: ${JSON.stringify(raw)}`);
+
+                // Update UI and internal state
                 addChatMessage('assistant', chatListItem, html, inferId);
-                messages.push({ role: 'assistant', content: JSON.stringify(raw) });
-                await announceMessage(raw.filter(elem => typeof elem === 'string').join('\n'), language);
+
+                // Announce messagse
+                // TODO: Add mute option to disable this
+                const textOnlyMessage = raw.filter(elem => typeof elem === 'string').join('\n');
+                if (textOnlyMessage.trim().length > 0) {
+                    await announceMessage(textOnlyMessage, language);
+                }
             });
             // Third response: images are loaded and the full response is available
             chatStream.addEventListener('imagesLoaded', async (event) => {
                 const { raw, language, html } = JSON.parse(event.data);
                 console.log(`Images rendered successfully: ${JSON.stringify(raw)}`);
+
+                // Update UI
                 addChatMessage('assistant', chatListItem, html, inferId);
+                messages.push({ role: 'assistant', content: JSON.stringify(raw) });
                 document.getElementById('sendTextButton').scrollIntoView();
                 chatStream.close();
                 resolve();
