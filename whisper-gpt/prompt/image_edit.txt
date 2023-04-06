@@ -4,6 +4,4 @@ The user says that the picture of a beach is cartoony and unrealistic.
 { "type": "editImage", "prompt": "A realistic 8k photograph of a sunny day at the beach. lens flare, sand texture, waves", "negativePrompt": "Cartoony, unrealistic, bright colors, cel-shaded, animated, CGI", "imageFile":"https://whisper-gpt-generated.s3.amazonaws.com/c14e709a5718.png" }
 
 The user thinks the image of animals is too upbeat, and wants something more dark and foreboding.
-{ "type": "editImage", "prompt": "A dark night, moonlit, the animals cower near the barn in the snow and cold. scary, foreboding, terror, horror", "negativePrompt": "Fun, happy, cute, sunny, brightly-lit" }
-
-When not specified, the source imageFile will be inferred from the appropriate context.
+{ "type": "editImage", "prompt": "A dark night, moonlit, the animals cower near the barn in the snow and cold. scary, foreboding, terror, horror", "negativePrompt": "Fun, happy, cute, sunny, brightly-lit", "imageFile": "https://whisper-gpt-generated.s3.amazonaws.com/3e8a6e7eabc7.png" }
