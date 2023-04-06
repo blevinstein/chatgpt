@@ -217,7 +217,7 @@ async function requestChatResponse(systemPrompt, messages) {
 
                 // Update UI
                 addChatMessage('assistant', chatListItem, html, inferId);
-                messages.push({ role: 'assistant', content: JSON.stringify(raw) });
+                messages.push({ role: 'assistant', content: raw });
                 document.getElementById('sendTextButton').scrollIntoView();
                 chatStream.close();
                 resolve();
