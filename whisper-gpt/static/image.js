@@ -56,7 +56,7 @@ function setSubjectImage(imageUrl) {
     // DEBUG
     //img.addEventListener('click', describeImage);
 
-    inputImage = imageUrl;
+    subjectImage = imageUrl;
     document.getElementById('imageContainer').children[0].replaceWith(img);
     //document.getElementById('uploadImageButton').classList.remove('hidden');
 }
@@ -129,7 +129,7 @@ async function describeImage(event) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                inputImage,
+                inputImage: subjectImage,
                 // TODO: add question
                 options: getOptions(),
             }),

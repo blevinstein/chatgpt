@@ -2,8 +2,10 @@
 let allPrompts = [];
 let selectedPrompts = [];
 let systemPrompt = '';
+// Each message is { role: "system" or "user" or "assistant", content: "string" or { object } }
 let messages = [];
-let inputImage;
+// This is the image being edited in the image workspace.
+let subjectImage;
 
 // Cache of text prompts fetched from the server
 const promptCache = {};
@@ -93,6 +95,14 @@ async function sendTextMessage() {
     }
 }
 
+function getLastImage(messages) {
+    const images = messages.flatMap(message =>
+        message.content.filter(element => typeof element === 'object' && element.imageFile));
+    if (images.length > 0) {
+        return images[images.length - 1].imageFile;
+    }
+}
+
 // Request re-rendering of a particular image in a chat response.
 async function reloadImage(event) {
     const span = event.target;
@@ -110,7 +120,9 @@ async function reloadImage(event) {
                 // TODO: add negativePrompt
                 type: command.type,
                 prompt: command.prompt,
-                inputImage: command.type === 'editImage' ? inputImage : undefined,
+                inputImage: command.type === 'editImage'
+                    ? (subjectImage || getLastImage(messages))
+                    : undefined,
                 options: getOptions(),
             }),
         });
@@ -164,7 +176,7 @@ async function requestChatResponse(systemPrompt, messages) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 messages: [{ role: 'system', content: [ systemPrompt ]}].concat(messages),
-                inputImage,
+                inputImage: subjectImage,
                 options: getOptions(),
             }),
         });
@@ -352,7 +364,7 @@ async function fetchChatLogs(inferId) {
     });
 
     // Load messages, except the system message, including the response message.
-    messages = responseData.messages.concat([{ role: 'assistant', content: responseData.reply }]);
+    messages = responseData.messages.slice(1).concat([{ role: 'assistant', content: responseData.reply }]);
 
     // Load the input image, if specified and supported by the editor environment
     if (responseData.inputImage && window.setSubjectImage) {
@@ -385,6 +397,9 @@ async function fetchChatLogs(inferId) {
             // inference IDs for earlier chat responses in the thread.
             messageIndex === messages.length - 1 ? inferId : undefined);
     }));
+
+    // Move to the text input element, if that requires scrolling.
+    document.getElementById('textInput').scrollIntoView();
 }
 
 function registerChatControls() {

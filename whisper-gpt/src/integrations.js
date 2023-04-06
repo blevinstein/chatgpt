@@ -225,6 +225,14 @@ export function synthesizeSpeech(text, language, voice) {
     });
 }
 
+function getLastImage(messages) {
+    const images = messages.flatMap(message =>
+        message.content.filter(element => typeof element === 'object' && element.imageFile));
+    if (images.length > 0) {
+        return images[images.length - 1];
+    }
+}
+
 export async function* generateChatCompletion({ messages, options = {}, user, inputImage }) {
     const model = options.chatModel || DEFAULT_CHAT_MODEL;
     const input = {
@@ -266,7 +274,7 @@ export async function* generateChatCompletion({ messages, options = {}, user, in
                         negativePrompt: element.negativePrompt,
                         options: transformOptions,
                         user,
-                        inputImage: element.inputFile || inputImage,
+                        inputImage: element.inputFile || inputImage || getLastImage(messages),
                     }).then((imageFile) => ({ ...element, imageFile }));
                 default:
                     throw new Error(`Element of unexpected type: ${JSON.stringify(element)}`);
@@ -318,8 +326,6 @@ export async function updateImageInChatLog(inferId, imageData) {
     // Update reply
     const reply = chatLog.reply;
     updateImageInMessage(reply, imageData);
-
-    console.log(`Updated data: ${JSON.stringify({messages, reply})}`);
 
     await uploadFileToS3(
         LOGS_BUCKET,
