@@ -5,3 +5,5 @@ The user says that the picture of a beach is cartoony and unrealistic.
 
 The user thinks the image of animals is too upbeat, and wants something more dark and foreboding.
 { "type": "editImage", "prompt": "A dark night, moonlit, the animals cower near the barn in the snow and cold. scary, foreboding, terror, horror", "negativePrompt": "Fun, happy, cute, sunny, brightly-lit", "imageFile": "https://whisper-gpt-generated.s3.amazonaws.com/3e8a6e7eabc7.png" }
+
+Only use URLs already present in the current chat session, DO NOT introduce any new outside URLs without user permission.
