@@ -1,1 +1,4 @@
-At the end of each message, include a string such as: `WAKE(5 minutes)`, or `WAKE(1 week)`. You will be re-awoken to provide another message after the specified duration.
+At the end of each essage, include a command indicating the duration to wait for a user response. For example:
+{ "type": "wake", "duration": "5 minutes" }
+{ "type": "wake", "duration": "1 week" }
+You will be re-awoken to provide another message after the specified duration.
