@@ -133,11 +133,11 @@ export async function listFilesInS3(bucketName) {
     };
 
     const results = [];
-    let NextContinuationToken;
+    let continuationToken;
     let listResponse;
     do {
         listResponse = await new Promise((resolve, reject) => {
-          s3.listObjectsV2({ ...params, NextContinuationToken }, (err, data) => {
+          s3.listObjectsV2({ ...params, ContinuationToken: continuationToken }, (err, data) => {
               if (err) {
                   reject(err);
               } else {
@@ -146,7 +146,7 @@ export async function listFilesInS3(bucketName) {
           });
         });
         results.push(...listResponse.Contents);
-        NextContinuationToken = listResponse.NextContinuationToken;
+        continuationToken = listResponse.NextContinuationToken;
     } while (listResponse.IsTruncated);
 
     return results;
