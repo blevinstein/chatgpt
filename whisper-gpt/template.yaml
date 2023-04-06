@@ -303,7 +303,7 @@ Resources:
                 "x": 0,
                 "type": "log",
                 "properties": {
-                  "query": "SOURCE ''/ecs/whisper-gpt-${EnvironmentName}'' | fields @timestamp, @message\n| filter @message not like /.*\"GET \\/health-check HTTP\\/1.1\" 200 .*/\n| sort @timestamp desc\n| limit 1000",
+                  "query": "SOURCE ''/ecs/whisper-gpt-${EnvironmentName}'' | fields @timestamp, @message\n| sort @timestamp desc\n| limit 1000",
                   "region": "${AWS::Region}",
                   "title": "Log group: /ecs/whisper-gpt-${EnvironmentName}",
                   "view": "table"
