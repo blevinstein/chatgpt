@@ -249,6 +249,14 @@ export async function* generateChatCompletion({ messages, options = {}, user, in
     console.log(`Assistant reply: ${reply} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset}) [${inferId}] (${(responseTime/1000).toFixed(2)}s)`);
 
     const parsedReply = JSON.parse(reply);
+
+    // Remove imageFile values from certain commands, if they were erroneously provided.
+    for (let element of parsedReply) {
+        if (element.type === 'image' || element.type === 'editImage') {
+            element.imageFile = undefined;
+        }
+    }
+
     yield parsedReply;
 
     const promises = parsedReply.map(element => {
