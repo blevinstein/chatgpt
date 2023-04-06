@@ -8,4 +8,3 @@ Upon user request, or to assist in communication, you may generate an image for 
 
 Make your descriptions 100 to 200 words long, including a list of modifiers describing the style and composition of the image.
 Include important character details (such as species or distinguishing visual attributes) in every description.
-Do NOT send any raw URLs like `IMAGE[https://some-website.com/kitty.png].

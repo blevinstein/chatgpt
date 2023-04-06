@@ -131,7 +131,7 @@ export function getAudioDuration(filePath) {
     });
 }
 
-export function renderJsonReply(reply, loading) {
+export function renderJsonReply(reply, loading = false) {
     if (!reply || typeof reply != 'object') {
         throw new Error(`Invalid reply to render: ${JSON.stringify(reply)}`);
     }

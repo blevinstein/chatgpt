@@ -225,7 +225,7 @@ export function synthesizeSpeech(text, language, voice) {
     });
 }
 
-export async function* generateChatCompletion(messages, options = {}, user, inputImage) {
+export async function* generateChatCompletion({ messages, options = {}, user, inputImage }) {
     const model = options.chatModel || DEFAULT_CHAT_MODEL;
     const input = {
         model,
@@ -249,16 +249,25 @@ export async function* generateChatCompletion(messages, options = {}, user, inpu
         } else if (typeof element === 'object') {
             switch (element.type) {
                 case 'image':
-                    return generateImageWithRetry(element.prompt, options, user)
-                        .then((imageFile) => ({ ...element, imageFile }));
+                    return generateImageWithRetry({
+                        prompt: element.prompt,
+                        negativePrompt: element.negativePrompt,
+                        options,
+                        user
+                    }).then((imageFile) => ({ ...element, imageFile }));
                 case 'editImage':
                     const transformOptions = {
                         ...options,
                         imageModel: options.imageTransformModel || DEFAULT_IMG2IMG_MODEL,
                         imageModelId: options.imageTransformModelId,
                     };
-                    return generateImageWithRetry(element.prompt, transformOptions, user, inputImage)
-                        .then((imageFile) => ({ ...element, imageFile }));
+                    return generateImageWithRetry({
+                        prompt: element.prompt,
+                        negativePrompt: element.negativePrompt,
+                        options: transformOptions,
+                        user,
+                        inputImage,
+                    }).then((imageFile) => ({ ...element, imageFile }));
                 default:
                     throw new Error(`Element of unexpected type: ${JSON.stringify(element)}`);
             }
@@ -336,10 +345,9 @@ function getGenerateImageFunction(options) {
     }
 };
 
-export async function generateImageWithRetry(prompt, options, user, inputImage) {
-    // TODO: add negativePrompt
+export async function generateImageWithRetry({ prompt, options, user, inputImage, negativePrompt }) {
     try {
-        return await backOff(() => getGenerateImageFunction(options)(prompt, options, user, inputImage), {
+        return await backOff(() => getGenerateImageFunction(options)({ prompt, options, user, inputImage, negativePrompt }), {
             numOfAttempts: 3,
             startingDelay: 2000,
             retry: (error, attemptNumber) => {
@@ -352,7 +360,7 @@ export async function generateImageWithRetry(prompt, options, user, inputImage) 
     }
 };
 
-export async function generateImageWithReplicate(prompt, options, user, inputImage) {
+export async function generateImageWithReplicate({ prompt, options, user, inputImage, negativePrompt }) {
     let input;
     const modelId = options.imageModelId || DEFAULT_REPLICATE_MODEL;
     switch (modelId) {
@@ -360,7 +368,7 @@ export async function generateImageWithReplicate(prompt, options, user, inputIma
         case 'stableDiffusion_21_fast':
             input = {
                 prompt,
-                negative_prompt: STABLE_DIFFUSION_NEGATIVE_PROMPT,
+                negative_prompt: negativePrompt || STABLE_DIFFUSION_NEGATIVE_PROMPT,
                 image_dimensions: options.imageSize || DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE,
             };
             break;
@@ -374,7 +382,7 @@ export async function generateImageWithReplicate(prompt, options, user, inputIma
             input = {
                 image: inputImage,
                 prompt,
-                negative_prompt: STABLE_DIFFUSION_NEGATIVE_PROMPT,
+                negative_prompt: negativePrompt || STABLE_DIFFUSION_NEGATIVE_PROMPT,
                 prompt_strength: DEFAULT_IMG2IMG_PROMPT_STRENGTH,
                 image_dimensions: options.imageSize || DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE,
             };
@@ -472,7 +480,7 @@ export async function generateImageWithReplicate(prompt, options, user, inputIma
     return imageUrl;
 }
 
-export async function generateImageWithDallE(prompt, options, user) {
+export async function generateImageWithDallE({ prompt, options, user }) {
     const imageSize = options.imageSize || OPENAI_IMAGE_SIZE;
     const generateInput = {
         prompt,
@@ -523,7 +531,7 @@ export async function generateImageWithDallE(prompt, options, user) {
     }
 }
 
-export async function generateImageWithStableDiffusion(prompt, options, user, inputImage) {
+export async function generateImageWithStableDiffusion({ prompt, options, user, inputImage, negativePrompt }) {
     const [width, height] = (options.imageSize || DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE)
         .split('x').map(Number);
     const inferId = createInferId();
@@ -536,7 +544,7 @@ export async function generateImageWithStableDiffusion(prompt, options, user, in
         key: STABILITY_AI_KEY,
         model_id: isDreambooth ? options.imageModelId || DEFAULT_DREAMBOOTH_MODEL_ID : undefined,
         prompt,
-        negative_prompt: STABLE_DIFFUSION_NEGATIVE_PROMPT,
+        negative_prompt: negativePrompt || STABLE_DIFFUSION_NEGATIVE_PROMPT,
         init_image: inputImage,
         prompt_strength: inputImage ? DEFAULT_IMG2IMG_PROMPT_STRENGTH : undefined,
         samples: 1,

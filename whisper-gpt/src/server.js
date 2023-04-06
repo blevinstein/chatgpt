@@ -233,8 +233,7 @@ async function main() {
     });
 
     app.post('/generateImage', async (req, res) => {
-        // TODO: add negativePrompt
-        let { type, prompt, inputImage, options = {} } = req.body;
+        let { type, prompt, inputImage, negativePrompt, options = {} } = req.body;
         const transformOptions = {
             ...options,
             imageModel: options.imageTransformModel || DEFAULT_IMG2IMG_MODEL,
@@ -242,8 +241,19 @@ async function main() {
         };
         try {
             const imageFile = type === 'editImage'
-                ? await generateImageWithRetry(prompt, transformOptions, getUser(req), inputImage)
-                : await generateImageWithRetry(prompt, options, getUser(req));
+                ? await generateImageWithRetry({
+                    prompt,
+                    negativePrompt,
+                    inputImage,
+                    options: transformOptions,
+                    user: getUser(req),
+                })
+                : await generateImageWithRetry({
+                    prompt,
+                    negativePrompt,
+                    options,
+                    user: getUser(req),
+                });
             const html = renderJsonReply([{ type, prompt, inputImage, imageFile }]);
             if (!imageFile) throw new Error('No imageFile found');
             res.json({ imageFile, html });
@@ -284,7 +294,7 @@ async function main() {
         };
 
         try {
-            const chatCompletion = generateChatCompletion(messages, options, getUser(req), inputImage);
+            const chatCompletion = generateChatCompletion({ messages, options, user: getUser(req), inputImage });
             const { value: inferId } = await chatCompletion.next();
             writeEvent('setInferId', { inferId });
 
@@ -297,7 +307,7 @@ async function main() {
             writeEvent('chatResponse', {
                 language,
                 raw: reply,
-                html: renderJsonReply(reply, true),
+                html: renderJsonReply(reply, /* loading=*/ true),
             });
 
             const { value: updatedReply } = await chatCompletion.next();
@@ -306,7 +316,7 @@ async function main() {
             writeEvent('imagesLoaded', {
                 language,
                 raw: updatedReply,
-                html: renderJsonReply(updatedReply, false),
+                html: renderJsonReply(updatedReply),
             });
         } catch (error) {
             console.error('Error completing chat:', error);
