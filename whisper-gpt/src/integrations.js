@@ -266,7 +266,7 @@ export async function* generateChatCompletion({ messages, options = {}, user, in
                         negativePrompt: element.negativePrompt,
                         options: transformOptions,
                         user,
-                        inputImage,
+                        inputImage: element.inputFile || inputImage,
                     }).then((imageFile) => ({ ...element, imageFile }));
                 default:
                     throw new Error(`Element of unexpected type: ${JSON.stringify(element)}`);
