@@ -2,13 +2,13 @@
 const OPTIONS_STORAGE_KEY = 'whispergpt-options';
 
 const DEFAULT_OPTIONS = {
-    chatModel: "gpt-3.5-turbo",
+    chatModel: "gpt-4",
     voiceGender: "Female",
-    imageModel: "stableDiffusion",
+    imageModel: "dreambooth",
     imageSize: "512x512",
     imageModelId: "midjourney",
-    imageTransformModel: "stableDiffusion_img2img",
-    imageTransformModelId: "img2img",
+    imageTransformModel: "dreambooth_img2img",
+    imageTransformModelId: "midjourney",
 };
 
 function bindClick(button, action) {
