@@ -12,15 +12,20 @@ import sanitize from 'sanitize-filename';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
-import { createStreamId, detectLanguage, getExtensionByMimeType, HOST, remuxAudio, renderJsonReply } from './common.js';
+import {
+    createStreamId,
+    detectLanguage,
+    getExtensionByMimeType,
+    HOST,
+    remuxAudio,
+    renderJsonReply
+} from './common.js';
 import {
     downloadFileFromS3,
-    EDIT_REGEX,
     generateChatCompletion,
     generateImageWithRetry,
     getVoices,
     IMAGE_HOST,
-    IMAGE_REGEX,
     interpretImage,
     listFilesInS3,
     synthesizeSpeech,
@@ -39,12 +44,6 @@ const PROMPT_FOLDER = 'prompt';
 if (!fs.existsSync(UPLOAD_FOLDER)) {
     fs.mkdirSync(UPLOAD_FOLDER);
 }
-
-/*
-const LS_REGEX = /LS\(([^)]*)\)/g;
-const CAT_REGEX = /CAT\(([^)]*)\)/g;
-const WRITE_REGEX = /`*\s*WRITE\(([^)]*)\)\s*`*([^`]*)`+/g;
-*/
 
 function getUser(req) {
     if (req.session && req.session.user && req.session.user.emails && req.session.user.emails[0]) {
@@ -234,19 +233,22 @@ async function main() {
     });
 
     app.post('/generateImage', async (req, res) => {
-        let { prompt, inputImage, options = {} } = req.body;
+        // TODO: add negativePrompt
+        let { type, prompt, inputImage, options = {} } = req.body;
         const transformOptions = {
             ...options,
             imageModel: options.imageTransformModel || DEFAULT_IMG2IMG_MODEL,
             imageModelId: options.imageTransformModelId,
         };
-        const imageFile = inputImage
-            ? await generateImageWithRetry(prompt, transformOptions, getUser(req), inputImage)
-            : await generateImageWithRetry(prompt, options, getUser(req));
-        if (imageFile) {
-            res.json({ prompt, inputImage, imageFile });
-        } else {
-            res.status(500).send('No imageFile found');
+        try {
+            const imageFile = type === 'editImage'
+                ? await generateImageWithRetry(prompt, transformOptions, getUser(req), inputImage)
+                : await generateImageWithRetry(prompt, options, getUser(req));
+            const html = renderJsonReply([{ type, prompt, inputImage, imageFile }]);
+            if (!imageFile) throw new Error('No imageFile found');
+            res.json({ imageFile, html });
+        } catch (error) {
+            res.status(500).send(error.message);
         }
     });
 

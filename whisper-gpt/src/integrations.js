@@ -83,10 +83,6 @@ const DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE = '768x768';
 // Stable diffusion via their API costs $10/mo for 1k requests
 const STABLE_DIFFUSION_PRICE = 0.01;
 
-// NOTE: Keep in sync with static/index.js
-export const IMAGE_REGEX = /IMAGE\s?\d{0,3}:?\s?\[([^\[\]<>]*)\]/gi;
-export const EDIT_REGEX = /EDIT\s?\d{0,3}:?\s?\[([^\[\]<>]*)\]/gi;
-
 const DEFAULT_CHAT_MODEL = 'gpt-3.5-turbo';
 
 const DEFAULT_DREAMBOOTH_MODEL_ID = 'midjourney';
@@ -229,7 +225,6 @@ export function synthesizeSpeech(text, language, voice) {
     });
 }
 
-// TODO: remove `images` argument, not needed with new format
 export async function* generateChatCompletion(messages, options = {}, user, inputImage) {
     const model = options.chatModel || DEFAULT_CHAT_MODEL;
     const input = {
@@ -290,24 +285,37 @@ export async function* generateChatCompletion(messages, options = {}, user, inpu
     yield updatedReply;
 }
 
-// TODO: update for json format
-export async function updateImageInChatLog(inferId, data) {
-    console.log(`Updating chatLog ${inferId} to add image: ${JSON.stringify(data)}`);
+function updateImageInMessage(messageContents, imageData) {
+    const elementIndex = messageContents.findIndex(e =>
+        e.type === imageData.type && e.prompt === imageData.prompt);
+    if (elementIndex >= 0) {
+        messageContents[elementIndex] = imageData;
+        return true;
+    }
+}
+
+export async function updateImageInChatLog(inferId, imageData) {
+    console.log(`Updating chatLog ${inferId} to add image: ${JSON.stringify(imageData)}`);
     const chatLog = JSON.parse(
         (await downloadFileFromS3(LOGS_BUCKET, `chat-${inferId}.json`)).Body.toString());
+
+    // Update messages
     const messages = chatLog.messages;
     for (let message of messages) {
-        const elementIndex = message.content.findIndex(e =>
-            e.type === data.type && e.prompt === data.prompt);
-        if (elementIndex) {
-            message[elementIndex] = data;
+        if (updateImageInMessage(message.content, imageData)) {
             break;
         }
     }
+    // Update reply
+    const reply = chatLog.reply;
+    updateImageInMessage(reply, imageData);
+
+    console.log(`Updated data: ${JSON.stringify({messages, reply})}`);
+
     await uploadFileToS3(
         LOGS_BUCKET,
         `chat-${inferId}.json`,
-        JSON.stringify({ ...chatLog, messages }),
+        JSON.stringify({ ...chatLog, messages, reply }),
         'application/json');
 }
 
@@ -329,6 +337,7 @@ function getGenerateImageFunction(options) {
 };
 
 export async function generateImageWithRetry(prompt, options, user, inputImage) {
+    // TODO: add negativePrompt
     try {
         return await backOff(() => getGenerateImageFunction(options)(prompt, options, user, inputImage), {
             numOfAttempts: 3,
@@ -342,41 +351,6 @@ export async function generateImageWithRetry(prompt, options, user, inputImage) 
         console.error('Image generation failed:', error);
     }
 };
-
-/*
- * TODO: remove
-export async function generateInlineImages(message, options = {}, user, inputImage) {
-    // Generate images in parallel using Promise.all
-    const createImagePromises = Array.from(message.matchAll(IMAGE_REGEX))
-        .map(([pattern, prompt]) => {
-            return generateImageWithRetry(prompt, options, user)
-                .then((imageFile) => [ pattern, imageFile ])
-        });
-    const editImagePromises = Array.from(message.matchAll(EDIT_REGEX))
-        .map(([pattern, prompt]) => {
-            const newOptions = {
-                ...options,
-                imageModel: options.imageTransformModel || DEFAULT_IMG2IMG_MODEL,
-                imageModelId: options.imageTransformModelId,
-            };
-            return generateImageWithRetry(prompt, newOptions, user, inputImage)
-                .then((imageFile) => [ pattern, imageFile ])
-        });
-    const imagePromises = createImagePromises.concat(editImagePromises);
-    const generatedImages = Array.from(await Promise.all(imagePromises)).map(
-        ([pattern, imageFile]) => ({ pattern, imageFile }));
-
-    const failedImages = generatedImages.filter(({ pattern, imageFile }) => !imageFile);
-    if (failedImages.length > 0) {
-        console.error(`Failed to generate ${failedImages.length}/${generatedImages.length} images`);
-    } else {
-        console.log(`Generated ${generatedImages.length} images successfully`);
-    }
-
-    const updatedMessage = renderMessage(message, generatedImages);
-    return [ updatedMessage, generatedImages ]
-}
-*/
 
 export async function generateImageWithReplicate(prompt, options, user, inputImage) {
     let input;

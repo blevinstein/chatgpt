@@ -105,6 +105,8 @@ async function reloadImage(event) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+                // TODO: add negativePrompt
+                type: command.type,
                 prompt: command.prompt,
                 inputImage: command.type === 'editImage' ? inputImage : undefined,
                 options: getOptions(),
@@ -112,7 +114,7 @@ async function reloadImage(event) {
         });
 
         if (!response.ok) throw response.statusText;
-        const { imageFile } = await response.json();
+        const { imageFile, html } = await response.json();
         if (!imageFile) {
             throw new Error('No imageFile in response');
         }
@@ -323,8 +325,6 @@ async function fetchChatLogs(inferId) {
 
     // Load messages, except the system message, including the response message.
     messages = responseData.messages.concat([{ role: 'assistant', content: responseData.reply }]);
-    // DEBUG
-    console.log('Loaded messages:', messages);
 
     // Load the input image, if specified and supported by the editor environment
     if (responseData.inputImage && window.setSubjectImage) {
