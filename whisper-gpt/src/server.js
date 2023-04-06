@@ -17,7 +17,7 @@ import {
     downloadFileFromS3,
     EDIT_REGEX,
     generateChatCompletion,
-    generateInlineImages,
+    generateImageWithRetry,
     getVoices,
     IMAGE_HOST,
     IMAGE_REGEX,
@@ -225,8 +225,29 @@ async function main() {
 
     app.post('/renderMessage', async (req, res) => {
         let { message, inputImage, options = {} } = req.body;
-        const html = renderJsonReply(message);
-        res.json({ html });
+        try {
+            const html = renderJsonReply(message);
+            res.json({ html });
+        } catch (error) {
+            res.status(500).send(error.message);
+        }
+    });
+
+    app.post('/generateImage', async (req, res) => {
+        let { prompt, inputImage, options = {} } = req.body;
+        const transformOptions = {
+            ...options,
+            imageModel: options.imageTransformModel || DEFAULT_IMG2IMG_MODEL,
+            imageModelId: options.imageTransformModelId,
+        };
+        const imageFile = inputImage
+            ? await generateImageWithRetry(prompt, transformOptions, getUser(req), inputImage)
+            : await generateImageWithRetry(prompt, options, getUser(req));
+        if (imageFile) {
+            res.json({ prompt, inputImage, imageFile });
+        } else {
+            res.status(500).send('No imageFile found');
+        }
     });
 
     // Chat step 1: send a POST request here with your argument payload
@@ -246,7 +267,7 @@ async function main() {
             return;
         }
 
-        const { messages, images, inputImage, options = {} } = chatArgs.get(streamId);
+        const { messages, inputImage, options = {} } = chatArgs.get(streamId);
         chatArgs.delete(streamId);
         console.log(`Chat stream started [${streamId}]`);
 
@@ -261,7 +282,7 @@ async function main() {
         };
 
         try {
-            const chatCompletion = generateChatCompletion(messages, images, options, getUser(req), inputImage);
+            const chatCompletion = generateChatCompletion(messages, options, getUser(req), inputImage);
             const { value: inferId } = await chatCompletion.next();
             writeEvent('setInferId', { inferId });
 
@@ -352,9 +373,9 @@ async function main() {
 
     app.post('/chatLog/:inferId/updateImage', async (req, res) => {
         const { inferId } = req.params;
-        const { pattern, imageFile } = req.body;
+        const data = req.body;
         try {
-            await updateImageInChatLog(inferId, pattern, imageFile);
+            await updateImageInChatLog(inferId, data);
             res.status(200).json('Done');
         } catch (error) {
             res.status(500).send(error.message);

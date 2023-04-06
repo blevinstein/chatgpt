@@ -7,7 +7,7 @@ import fs from 'fs';
 import { Configuration, OpenAIApi } from 'openai';
 import path from 'path';
 
-import { COLOR, createInferId, getAudioDuration, hashValue, HOST, measureTime, renderMessage } from './common.js';
+import { COLOR, createInferId, getAudioDuration, hashValue, HOST, measureTime } from './common.js';
 
 dotenv.config();
 
@@ -230,11 +230,11 @@ export function synthesizeSpeech(text, language, voice) {
 }
 
 // TODO: remove `images` argument, not needed with new format
-export async function* generateChatCompletion(messages, images, options = {}, user, inputImage) {
+export async function* generateChatCompletion(messages, options = {}, user, inputImage) {
     const model = options.chatModel || DEFAULT_CHAT_MODEL;
     const input = {
         model,
-        messages,
+        messages: messages.map(({ role, content }) => ({ role, content: JSON.stringify(content) })),
         user: hashValue(user),
     };
     const [responseTime, response] = await measureTime(() => openai.createChatCompletion(input));
@@ -257,7 +257,12 @@ export async function* generateChatCompletion(messages, images, options = {}, us
                     return generateImageWithRetry(element.prompt, options, user)
                         .then((imageFile) => ({ ...element, imageFile }));
                 case 'editImage':
-                    return generateImageWithRetry(element.prompt, options, user, inputImage)
+                    const transformOptions = {
+                        ...options,
+                        imageModel: options.imageTransformModel || DEFAULT_IMG2IMG_MODEL,
+                        imageModelId: options.imageTransformModelId,
+                    };
+                    return generateImageWithRetry(element.prompt, transformOptions, user, inputImage)
                         .then((imageFile) => ({ ...element, imageFile }));
                 default:
                     throw new Error(`Element of unexpected type: ${JSON.stringify(element)}`);
@@ -265,7 +270,6 @@ export async function* generateChatCompletion(messages, images, options = {}, us
         }
     });
     const updatedReply = Array.from(await Promise.all(promises));
-    yield updatedReply;
     await uploadFileToS3(
         LOGS_BUCKET,
         `chat-${inferId}.json`,
@@ -277,25 +281,33 @@ export async function* generateChatCompletion(messages, images, options = {}, us
             responseTime,
             user,
             inputImage,
-            updatedReply,
+            messages,
+            reply: updatedReply,
             options,
             selfLink: `${HOST}?inferId=${inferId}`,
         }, null, 4),
         'application/json');
+    yield updatedReply;
 }
 
 // TODO: update for json format
-export async function updateImageInChatLog(inferId, pattern, imageFile) {
-    console.log(`Updating chatLog ${inferId} to add image: ${pattern} => ${imageFile}`);
+export async function updateImageInChatLog(inferId, data) {
+    console.log(`Updating chatLog ${inferId} to add image: ${JSON.stringify(data)}`);
     const chatLog = JSON.parse(
         (await downloadFileFromS3(LOGS_BUCKET, `chat-${inferId}.json`)).Body.toString());
-    const generatedImages = chatLog.generatedImages;
-    const patternIndex = generatedImages.findIndex(({ pattern: p }) => p === pattern);
-    generatedImages[patternIndex].imageFile = imageFile;
+    const messages = chatLog.messages;
+    for (let message of messages) {
+        const elementIndex = message.content.findIndex(e =>
+            e.type === data.type && e.prompt === data.prompt);
+        if (elementIndex) {
+            message[elementIndex] = data;
+            break;
+        }
+    }
     await uploadFileToS3(
         LOGS_BUCKET,
         `chat-${inferId}.json`,
-        JSON.stringify({ ...chatLog, generatedImages }),
+        JSON.stringify({ ...chatLog, messages }),
         'application/json');
 }
 
@@ -312,14 +324,13 @@ function getGenerateImageFunction(options) {
         case 'dreambooth_img2img':
             return generateImageWithStableDiffusion;
         default:
-            console.error(`Unexpected imageModel specified: ${options.imageModel}`);
-            return generateImageWithStableDiffusion;
+            throw new Error(`Unexpected imageModel specified: ${options.imageModel}`);
     }
 };
 
-async function generateImageWithRetry(description, options, user, inputImage) {
+export async function generateImageWithRetry(prompt, options, user, inputImage) {
     try {
-        return await backOff(() => getGenerateImageFunction(options)(description, options, user, inputImage), {
+        return await backOff(() => getGenerateImageFunction(options)(prompt, options, user, inputImage), {
             numOfAttempts: 3,
             startingDelay: 2000,
             retry: (error, attemptNumber) => {
@@ -332,21 +343,23 @@ async function generateImageWithRetry(description, options, user, inputImage) {
     }
 };
 
+/*
+ * TODO: remove
 export async function generateInlineImages(message, options = {}, user, inputImage) {
     // Generate images in parallel using Promise.all
     const createImagePromises = Array.from(message.matchAll(IMAGE_REGEX))
-        .map(([pattern, description]) => {
-            return generateImageWithRetry(description, options, user)
+        .map(([pattern, prompt]) => {
+            return generateImageWithRetry(prompt, options, user)
                 .then((imageFile) => [ pattern, imageFile ])
         });
     const editImagePromises = Array.from(message.matchAll(EDIT_REGEX))
-        .map(([pattern, description]) => {
+        .map(([pattern, prompt]) => {
             const newOptions = {
                 ...options,
                 imageModel: options.imageTransformModel || DEFAULT_IMG2IMG_MODEL,
                 imageModelId: options.imageTransformModelId,
             };
-            return generateImageWithRetry(description, newOptions, user, inputImage)
+            return generateImageWithRetry(prompt, newOptions, user, inputImage)
                 .then((imageFile) => [ pattern, imageFile ])
         });
     const imagePromises = createImagePromises.concat(editImagePromises);
@@ -363,29 +376,30 @@ export async function generateInlineImages(message, options = {}, user, inputIma
     const updatedMessage = renderMessage(message, generatedImages);
     return [ updatedMessage, generatedImages ]
 }
+*/
 
-export async function generateImageWithReplicate(description, options, user, inputImage) {
+export async function generateImageWithReplicate(prompt, options, user, inputImage) {
     let input;
     const modelId = options.imageModelId || DEFAULT_REPLICATE_MODEL;
     switch (modelId) {
         case 'stableDiffusion_21':
         case 'stableDiffusion_21_fast':
             input = {
-                prompt: description,
+                prompt,
                 negative_prompt: STABLE_DIFFUSION_NEGATIVE_PROMPT,
                 image_dimensions: options.imageSize || DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE,
             };
             break;
         case 'latentDiffusion':
             input = {
-                prompt: description,
+                prompt,
                 n_samples: 1,
             };
             break;
         case 'img2img':
             input = {
                 image: inputImage,
-                prompt: description,
+                prompt,
                 negative_prompt: STABLE_DIFFUSION_NEGATIVE_PROMPT,
                 prompt_strength: DEFAULT_IMG2IMG_PROMPT_STRENGTH,
                 image_dimensions: options.imageSize || DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE,
@@ -484,10 +498,10 @@ export async function generateImageWithReplicate(description, options, user, inp
     return imageUrl;
 }
 
-export async function generateImageWithDallE(description, options, user) {
+export async function generateImageWithDallE(prompt, options, user) {
     const imageSize = options.imageSize || OPENAI_IMAGE_SIZE;
     const generateInput = {
-        prompt: description,
+        prompt,
         n: 1,
         size: imageSize,
         user: hashValue(user),
@@ -535,17 +549,14 @@ export async function generateImageWithDallE(description, options, user) {
     }
 }
 
-export async function generateImageWithStableDiffusion(description, options, user, inputImage) {
+export async function generateImageWithStableDiffusion(prompt, options, user, inputImage) {
     const [width, height] = (options.imageSize || DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE)
         .split('x').map(Number);
     const inferId = createInferId();
     const isDreambooth = options.imageModel === 'dreambooth' || options.imageModel === 'dreambooth_img2img';
 
-    let prompt;
     if (isDreambooth && STABLE_DIFFUSION_PROMPT_ENHANCEMENT[options.imageModelId]) {
-        prompt = STABLE_DIFFUSION_PROMPT_ENHANCEMENT[options.imageModelId](description);
-    } else {
-        prompt = description;
+        prompt = STABLE_DIFFUSION_PROMPT_ENHANCEMENT[options.imageModelId](prompt);
     }
     const generateInput = {
         key: STABILITY_AI_KEY,

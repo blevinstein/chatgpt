@@ -2,7 +2,6 @@
 let selectedPrompts = [];
 let systemPrompt = '';
 let messages = [];
-let messageImages = [];
 let inputImage;
 
 // Cache of text prompts fetched from the server
@@ -79,22 +78,9 @@ async function sendTextMessage() {
     if (message.length > 0) {
         try {
             const listItem = createListItemWithSpinner();
-
-            const response = await fetch('/renderMessage', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    message,
-                    inputImage,
-                    options: getOptions(),
-                }),
-            });
-
-            if (!response.ok) throw response.statusText;
-
-            const { html } = await response.json();
-            messages.push({ role: 'user', content: message });
-            addChatMessage('user', listItem, html);
+            // TODO: Add support for user-generated image commands etc?
+            messages.push({ role: 'user', content: [ message ]});
+            addChatMessage('user', listItem, message);
             document.getElementById('textInput').scrollIntoView();
         } catch (error) {
             console.error('Error rendering message:', error);
@@ -108,43 +94,28 @@ async function sendTextMessage() {
 // Request re-rendering of a particular image in a chat response.
 async function reloadImage(event) {
     const span = event.target;
-    const messageFragment = span.textContent;
+    const command = JSON.parse(span.textContent);
 
     // Replace contents with a spinner
     span.textContent = '';
     span.appendChild(cloneTemplate('spinner'));
 
     try {
-        const response = await fetch('/renderMessage', {
+        const response = await fetch('/generateImage', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                message: messageFragment,
-                inputImage,
+                prompt: command.prompt,
+                inputImage: command.type === 'editImage' ? inputImage : undefined,
                 options: getOptions(),
             }),
         });
 
         if (!response.ok) throw response.statusText;
-        const { html, generatedImages } = await response.json();
-        // There should only be one image returned in `generatedImages` here, because there
-        // was only one image pattern in the fragment rendered.
-        if (generatedImages.length < 1) {
-            throw new Error('No generatedImage found');
-        } else if (generatedImages.length > 1) {
-            console.error(
-                `Expected 1 generatedImage but found ${generatedImages.length}`, generatedImages);
+        const { imageFile } = await response.json();
+        if (!imageFile) {
+            throw new Error('No imageFile in response');
         }
-
-        if (!generatedImages[0].imageFile) {
-            throw new Error('No imageFile found');
-        }
-
-        // Update messageImages with newly generated image
-        messageImages = messageImages.filter(({ pattern }) => pattern != generatedImages[0].pattern);
-        messageImages.push(generatedImages[0]);
-        // DEBUG
-        console.log(messageImages);
 
         // Retry was successful, we can remove the retry handler and styling.
         span.innerHTML = html;
@@ -158,7 +129,7 @@ async function reloadImage(event) {
             await fetch(`/chatLog/${inferId}/updateImage`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(generatedImages[0]),
+                body: JSON.stringify({ ...command, imageFile }),
             });
         }
     } catch (error) {
@@ -188,8 +159,7 @@ async function requestChatResponse(systemPrompt, messages) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                messages: [{ role: 'system', content: systemPrompt}].concat(messages),
-                images: messageImages,
+                messages: [{ role: 'system', content: [ systemPrompt ]}].concat(messages),
                 inputImage,
                 options: getOptions(),
             }),
@@ -352,8 +322,9 @@ async function fetchChatLogs(inferId) {
     document.getElementById('systemInput').value = responseData.input.messages[0].content;
 
     // Load messages, except the system message, including the response message.
-    messages = responseData.input.messages.slice(1).concat(
-        responseData.response.choices[0].message);
+    messages = responseData.messages.concat([{ role: 'assistant', content: responseData.reply }]);
+    // DEBUG
+    console.log('Loaded messages:', messages);
 
     // Load the input image, if specified and supported by the editor environment
     if (responseData.inputImage && window.setSubjectImage) {

@@ -132,6 +132,10 @@ export function getAudioDuration(filePath) {
 }
 
 export function renderJsonReply(reply, loading) {
+    if (!reply || typeof reply != 'object') {
+        throw new Error(`Invalid reply to render: ${JSON.stringify(reply)}`);
+    }
+
     let markdownReply = reply.map(element => {
         if (typeof element === 'string') {
             return element;
@@ -144,7 +148,7 @@ export function renderJsonReply(reply, loading) {
                 } else if (loading) {
                     return SPINNER_HTML;
                 } else {
-                    return `<span class="imageRetry">${JSON.stringify(element.prompt)}</span>`;
+                    return `<span class="imageRetry">${JSON.stringify(element)}</span>`;
                 }
                 break;
         }
