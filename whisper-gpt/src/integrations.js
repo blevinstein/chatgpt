@@ -245,21 +245,44 @@ export async function* generateChatCompletion({ messages, options = {}, user, in
     const inferId = createInferId();
     yield inferId;
 
-    const reply = response.data.choices[0].message.content;
-    console.log(`Assistant reply: ${reply} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset}) [${inferId}] (${(responseTime/1000).toFixed(2)}s)`);
+    const rawReply = response.data.choices[0].message.content;
+    console.log(`Assistant reply: ${rawReply} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset}) [${inferId}] (${(responseTime/1000).toFixed(2)}s)`);
 
-    const parsedReply = JSON.parse(reply);
+    // Be forgiving about what you accept from the chatbot, but strict about the output format.
+    let reply;
+    try {
+        reply = JSON.parse(rawReply);
+        if (!Array.isArray(reply) && typeof reply === 'object' && !!reply.type) {
+            console.warn("JSON format violation: single object must be enclosed in list");
+            reply = [ reply ];
+        }
+        if (!Array.isArray(reply) && typeof reply === 'string') {
+            console.warn("JSON format violation: single string must be enclosed in list");
+            reply = [ reply ];
+        }
+        if (!Array.isArray(reply)) {
+            throw new Error(`Parsing failed, fallback to text treatment: ${rawReply}`);
+        }
+        reply.forEach(item => {
+            if (typeof item === 'string') return;
+            if (typeof item === 'object' && !!item.type) return;
+            throw new Error(`Unexpected item: ${JSON.stringify(item)}`);
+        });
+    } catch (error) {
+        console.error(error);
+        reply = [ rawReply ];
+    }
 
     // Remove imageFile values from certain commands, if they were erroneously provided.
-    for (let element of parsedReply) {
+    for (let element of reply) {
         if (element.type === 'image' || element.type === 'editImage') {
             element.imageFile = undefined;
         }
     }
 
-    yield parsedReply;
+    yield reply;
 
-    const promises = parsedReply.map(element => {
+    const promises = reply.map(element => {
         if (typeof element === 'string') {
             return Promise.resolve(element);
         } else if (typeof element === 'object') {

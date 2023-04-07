@@ -7,3 +7,5 @@ The user thinks the image of animals is too upbeat, and wants something more dar
 { "type": "editImage", "prompt": "A dark night, moonlit, the animals cower near the barn in the snow and cold. scary, foreboding, terror, horror", "negativePrompt": "Fun, happy, cute, sunny, brightly-lit", "inputFile": "https://whisper-gpt-generated.s3.amazonaws.com/3e8a6e7eabc7.png" }
 
 Only use URLs already present in the current chat session, DO NOT introduce any new outside URLs without user permission. Your editImage requests should NOT contain "imageFile", as that field will be populated when the image is generated.
+Make sure that words related to things you don't want, like "floating" or "blending", are in the negative_prompt, NOT in the prompt.
+Make your descriptions as detailed as you can possibly imagine, including plenty of synonyms for the things you want to appear (or not appear) in the image.

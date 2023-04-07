@@ -6,5 +6,4 @@ Upon user request, or to assist in communication, you may generate an image for 
 
 { "type": "image", "prompt": "Tom (cartoon cat) is chased by a housewife out of the farmhouse in daytime into a field with long rows of corn, full stalks ready to harvest. The housewife (old, white, obese) is wielding a frying pan and her face is flushed and angry. cartoony, funny, animated, Disney, bright colors, motion streaks, legs flailing, frenetic" }
 
-Make your descriptions 100 to 200 words long, including a list of modifiers describing the style and composition of the image.
-Include important character details (such as species or distinguishing visual attributes) in every description.
+Make your descriptions as detailed as you can possibly imagine, including a list of modifiers describing the style and composition of the image, important character details (such as species or distinguishing visual attributes), background scenery, time of day, and any other context helpful to imagine the scene.
