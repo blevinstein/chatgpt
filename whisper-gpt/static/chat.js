@@ -216,9 +216,9 @@ async function requestChatResponse(systemPrompt, messages) {
                 addChatMessage('assistant', chatListItem, html, inferId);
 
                 // Announce messagse
-                // TODO: Add mute option to disable this
+                const muted = document.getElementById('muteButton').classList.contains('muted');
                 const textOnlyMessage = raw.filter(elem => typeof elem === 'string').join('\n');
-                if (textOnlyMessage.trim().length > 0) {
+                if (textOnlyMessage.trim().length > 0 && !muted) {
                     await announceMessage(textOnlyMessage, language);
                 }
             });

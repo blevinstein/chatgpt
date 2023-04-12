@@ -126,8 +126,22 @@ function registerAudioButtons() {
     recordButton.addEventListener('mouseleave', stopRecordingAndUpload);
     recordButton.addEventListener('touchend', stopRecordingAndUpload);
     recordButton.addEventListener('touchcancel', stopRecordingAndUpload);
+
     const stopAudioButton = document.getElementById('stopAudioButton');
     stopAudioButton.addEventListener('mouseup', () => stopSpeaking());
     stopAudioButton.addEventListener('touchend', () => stopSpeaking());
+
+    const muteButton = document.getElementById('muteButton');
+    bindClick(muteButton, () => {
+        const muted = muteButton.classList.toggle('muted');
+        const muteIcon = muteButton.querySelector('i');
+        if (muted) {
+            muteIcon.classList.remove('fa-volume-up');
+            muteIcon.classList.add('fa-volume-off');
+        } else {
+            muteIcon.classList.add('fa-volume-up');
+            muteIcon.classList.remove('fa-volume-off');
+        }
+    });
 }
 

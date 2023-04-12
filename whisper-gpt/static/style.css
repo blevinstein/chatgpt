@@ -96,10 +96,15 @@ textarea {
     opacity: 0.5;
 }
 
+#muteButton {
+    background-color: #ff3300;
+}
+
 /* Control bar buttons */
 #recordButton,
 #stopAudioButton,
-#sendTextButton {
+#sendTextButton,
+#muteButton {
     color: white;
     font-size: 1.5rem;
     height: 3rem;
@@ -469,7 +474,8 @@ button.logButton:hover .fa {
     }
 
     #recordButton,
-    #stopAudioButton {
+    #stopAudioButton,
+    #muteButton {
         flex-grow: 1;
     }
 
