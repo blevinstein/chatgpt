@@ -178,8 +178,7 @@ textarea {
     color: black;
 }
 
-#messageList .message .contents,
-#messageList #systemPrompt {
+#messageList .message .contents {
     display: block;
     text-align: justify;
     width: 100%;

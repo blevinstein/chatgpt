@@ -1,7 +1,6 @@
 // Internal representation of chat state
 let allPrompts = [];
 let selectedPrompts = [];
-let systemPrompt = '';
 // Each message is { role: "system" or "user" or "assistant", content: "string" or { object } }
 let messages = [];
 // This is the image being edited in the image workspace.
@@ -155,10 +154,13 @@ async function reloadImage(event) {
     }
 }
 
+
 // Get the full system prompt, including presets and custom input
 function getSystemPrompt() {
     const customPrompt = document.getElementById('systemInput').value;
-    return (systemPrompt + '\n\n'+ customPrompt).trim();
+    const promptParts = Promise.all(selectedPrompts.map(async p => (await getPromptData(p)).text))
+        .concat([customPrompt]);
+    return promptParts.join('\n\n').trim();
 }
 
 function setInferId(inferId) {
@@ -258,34 +260,29 @@ async function fetchPrompts(initialPrompts = [], customPrompt = '') {
         allPrompts = await response.json();
 
         const promptButtonContainer = document.getElementById('promptButtonContainer');
+        await Promise.all(allPrompts.map(p => getPromptData(p)));
         allPrompts.sort();
-        allPrompts.forEach(prompt => {
+        allPrompts.forEach(async promptKey => {
             const button = cloneTemplate('promptButton');
-            button.dataset.value = prompt;
-            button.textContent = prompt;
-            if (selectedPrompts.includes(prompt)) {
+            button.dataset.value = promptKey;
+            button.textContent = promptKey;
+            button.title = (await getPromptData(promptKey)).text.trim();
+            if (selectedPrompts.includes(promptKey)) {
                 button.classList.add('selected');
             }
             bindClick(button, togglePromptButton);
             promptButtonContainer.appendChild(button);
         });
-        await Promise.all(selectedPrompts.map(p => getPromptData(p)));
-        updateSystemPrompt();
     } catch (error) {
         console.error('Error fetching prompts:', error);
     }
 }
 
-// Updates the system prompt (internal text and visible HTML) based on `selectedPrompts`.
-function updateSystemPrompt() {
-    systemPrompt =
-        selectedPrompts.map(p => promptCache[p].text).join('\n\n');
-    document.getElementById('systemPrompt').innerHTML =
-        selectedPrompts.map(p => promptCache[p].html).join('<br/><br/>');
-}
-
 // Fetch a prompt from the server
 async function getPromptData(promptName) {
+    if (promptCache[promptName]) {
+        return promptCache[promptName];
+    }
     try {
         const response = await fetch(`/prompt/${promptName}`);
         const responseData = await response.json();
@@ -304,12 +301,10 @@ async function togglePromptButton(event) {
     const promptName = button.dataset.value;
 
     if (isSelected) {
-        await getPromptData(promptName);
         selectedPrompts.push(promptName);
     } else {
         selectedPrompts = selectedPrompts.filter(p => p !== promptName);
     }
-    updateSystemPrompt();
 }
 
 // Get the build time from the server
@@ -341,10 +336,12 @@ async function fetchChatLogs(inferId) {
     setInferId(inferId);
 
     // Infer preset prompts from the full prompt.
-    await Promise.all(allPrompts.map(p => getPromptData(p)));
     const fullPrompt = JSON.parse(responseData.input.messages[0].content)[0];
-    let promptIndexes = allPrompts
-        .map(p => [fullPrompt.indexOf(promptCache[p].text.trim()), p, promptCache[p].text.trim()])
+    let promptIndexes = Promise.all(
+            allPrompts.map(async promptKey => {
+                const promptText = (await getPromptData(promptKey)).text.trim();
+                return [fullPrompt.indexOf(promptText), promptKey, promptText];
+            }))
         .filter(([idx, key, value]) => idx >= 0);
     promptIndexes.sort((a, b) => a[0] - b[0]);
     selectedPrompts = promptIndexes.map(([idx, key, value]) => key);
@@ -354,7 +351,6 @@ async function fetchChatLogs(inferId) {
     });
     document.getElementById('systemInput').value = customPrompt.trim();
 
-    updateSystemPrompt();
     Array.from(document.getElementsByClassName('selected')).forEach(e => {
         if (selectedPrompts.includes(e.dataset.value)) {
             e.classList.add('selected');
