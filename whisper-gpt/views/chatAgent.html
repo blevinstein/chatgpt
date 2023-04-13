@@ -13,9 +13,20 @@
     <div id="headerBar">
         <a href="/" id="whisperLink"><h1>Whisper</h1></a>
         <a href="/image" id="imageLink"><h1>Image</h1></a>
+        <a href="/createAgent" id="agentLink"><h1>Agent</h1></a>
         <a href="/gallery" id="imageLink"><h1>Gallery</h1></a>
         <a id="restart" href="/">Restart</a>
         <a id="logout" href="/logout">Logout</a>
+    </div>
+
+    <div id="agentInfo">
+        <h2 id="agentId"></h2>
+        <!-- TODO: Add metadata: name, created-by, # messages, etc -->
+        <a href="#" id="selfLink">Chat</a>
+        <div id="systemPromptHover">
+            <div id="systemPromptLabel">Prompt</div>
+            <pre id="systemPrompt"></pre>
+        </div>
     </div>
 
     <div id="chatContainer">

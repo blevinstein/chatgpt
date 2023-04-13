@@ -467,6 +467,35 @@ button.logButton:hover .fa {
     touch-action: none;
 }
 
+#agentInfo {
+    flex-direction: column;
+}
+
+#systemPromptHover {
+    position: relative;
+}
+
+#systemPromptLabel,
+#selfLink,
+#agentId {
+    padding: 0.5rem;
+}
+
+#systemPrompt {
+    background: white;
+    border: 1px solid black;
+    padding: 1rem;
+    position: absolute;
+    top: 100%;
+    white-space: pre-wrap;
+    width: 80vw;
+    z-index: 10;
+}
+
+#systemPromptHover:not(:hover) #systemPrompt {
+    display: none;
+}
+
 @media (max-width: 700px) {
     #controlBar {
         flex-direction: column;

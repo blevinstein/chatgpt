@@ -354,6 +354,9 @@ async function fetchBuildTime() {
 }
 
 async function fetchAgent(agentId) {
+    document.querySelector('#agentInfo #selfLink').href = `/chatAgent?agentId=${agentId}`;
+    document.querySelector('#agentInfo #agentId').textContent = agentId;
+
     const response = await fetch(`/agent/${agentId}`);
 
     if (!response.ok) {
@@ -361,6 +364,9 @@ async function fetchAgent(agentId) {
         return;
     }
     const agentData = await response.json();
+
+    // TODO: Add additional agent metadata to #agentInfo
+    document.querySelector('#agentInfo #systemPrompt').textContent = agentData.systemPrompt;
 
     const messages = agentData.messages;
 
