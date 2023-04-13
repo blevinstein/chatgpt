@@ -3,7 +3,6 @@ import cookieSession from 'cookie-session';
 import cors from 'cors';
 import express from 'express';
 import fs from 'fs';
-import MarkdownIt from 'markdown-it';
 import multer from 'multer';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
@@ -40,12 +39,6 @@ import {
     putAgent,
     synthesizeSpeech,
 } from './integration/aws.js';
-
-const markdown = MarkdownIt({
-    html: true,
-    linkify: false,
-    typographer: false,
-});
 
 const UPLOAD_FOLDER = 'uploads';
 const PROMPT_FOLDER = 'prompt';
@@ -432,9 +425,8 @@ async function main() {
     app.get('/prompt/:name', async (req, res) => {
         const filePath = path.join(PROMPT_FOLDER, sanitize(req.params.name) + '.txt');
         try {
-            const promptData = await fs.promises.readFile(filePath, { encoding: 'utf-8' });
-            const html = markdown.render(promptData);
-            res.status(200).json({ text: promptData, html });
+            const promptText = await fs.promises.readFile(filePath, { encoding: 'utf-8' });
+            res.status(200).json({ text: promptText });
         } catch (error) {
             console.error(`Prompt not found: ${req.params.name}`, error);
             res.status(400).send(`Prompt not found`);
@@ -471,9 +463,24 @@ async function main() {
                 options,
                 systemPrompt,
                 messages: [],
-                state: {},
+                storage: {},
             });
             res.status(200).json({ status: 'CREATED', id });
+        } catch (error) {
+            console.error(error);
+            res.status(500).send(error.message);
+        }
+    });
+
+    app.post('/agent/:id/chat', async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { message } = req.body;
+            const agent = await getAgent(id);
+            agent.messages.push({ role: 'user', content: message });
+            // TODO: If executionMode == 'CHAT', request a response from the bot
+            await putAgent(agent);
+            res.status(200).json({ messages: agent.messages });
         } catch (error) {
             console.error(error);
             res.status(500).send(error.message);

@@ -135,12 +135,30 @@ function addType(data) {
     throw new Error(`Unexpected input: ${data}`);
 }
 
+function stripType(typedData) {
+    const [type, data] = Object.entries(typedData)[0];
+    switch (type) {
+        case 'N':
+        case 'S':
+        case 'BOOL':
+        case 'NS':
+        case 'SS':
+            return data;
+        case 'L':
+            return data.map(el => stripType(el));
+        case 'M':
+            return Object.fromEntries(Object.entries(data)
+                .map(([key, value]) => [key, stripType(value)]));
+        default:
+            throw new Error(`Unexpected type: ${type} (${typedData})`);
+    }
+}
+
 export function putAgent(data) {
-  const { id, options, systemPrompt, messages = [], state = {} } = data;
-  if (!id) throw new Error('Missing id!');
+  if (!data.id) throw new Error('Missing id!');
   return new Promise((resolve, reject) => {
       dynamo.putItem({
-          Item: addType({ id, systemPrompt, options, messages, state }).M,
+          Item: addType(data).M,
           ReturnConsumedCapacity: 'TOTAL',
           TableName: AGENTS_DB,
       }, (err, data) => {
@@ -165,7 +183,7 @@ export function getAgent(id) {
                 if (!data.Item) {
                     reject(new Error(`Agent not found: ${id}`));
                 } else {
-                    resolve(data.Item);
+                    resolve(stripType({ M: data.Item }));
                 }
             }
         });
