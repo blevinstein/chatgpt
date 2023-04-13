@@ -492,7 +492,9 @@ async function main() {
             const { id } = req.params;
             const { message } = req.body;
             const agent = await getAgent(id);
-            agent.messages.push({ role: 'user', content: message });
+            if (message) {
+                agent.messages.push({ role: 'user', content: message });
+            }
 
             // TODO: Intelligently truncate messages when it gets too long
             // TODO: Add additional system prompt immediately before response with context?
@@ -515,15 +517,14 @@ async function main() {
                     switch (part.type) {
                         case 'browse':
                             try {
-                                const { html, text } = await browsePage(part.url);
+                                const { html, text, links } = await browsePage(part.url);
                                 const { inferIds, summary } = await summarizeText({
                                     text,
                                     question: part.question,
                                     options: agent.options,
                                     user: getUser(req),
                                 });
-                                // DEBUG
-                                console.log({ summary });
+                                console.log({ summary, html, links });
                                 agent.messages.push({
                                     role: 'system',
                                     content: [{

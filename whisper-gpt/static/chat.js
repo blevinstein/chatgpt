@@ -95,9 +95,6 @@ async function sendAgentMessage() {
     const message = textInput.value.trim();
 
     textInput.value = '';
-    if (!message.length) {
-        return;
-    }
     const searchParams = new URLSearchParams(window.location.search);
     const agentId = searchParams.get('agentId');
     let listItem = createListItemWithSpinner();
@@ -106,7 +103,7 @@ async function sendAgentMessage() {
         const response = await fetch(`/agent/${agentId}/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: [ message ] }),
+            body: JSON.stringify({ message: message ? [ message ] : undefined }),
         });
 
         if (!response.ok) throw response.statusText;

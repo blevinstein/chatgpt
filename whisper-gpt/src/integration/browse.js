@@ -11,8 +11,9 @@ export async function browsePage(url) {
 				const response = await axios.get(url);
 				const rawHtml = response.data;
         const root = parse(rawHtml);
-        root.querySelectorAll('script, style').forEach(s => s.remove());
-        return { html: root.toString(), text: root.text };
+        root.querySelectorAll('script, style, noscript, head, svg > *').forEach(s => s.remove());
+        const links = root.querySelectorAll('a').map(a => ({ href: a.getAttribute('href'), text: a.text.trim() }));
+        return { html: root.toString(), text: root.text, links };
 		} catch (error) {
 				console.error(`Error browsing URL ${url}: ${error.message}`);
 				throw error;
@@ -30,7 +31,7 @@ export function chunkText(text, tokensPerChunk = 6000) {
 }
 
 const summarizePrompt = (question) => question
-    ? `Summarize the given text, emphasizing details which would help answer this question: ${question}`
+    ? `Try to answer this question: ${question}\n\nIf you cannot answer the question, just summarize the text.`
     : 'Summarize the given text.';
 
 export async function summarizeText({ text, question, options, user }) {

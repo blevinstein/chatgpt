@@ -151,6 +151,8 @@ function stripType(typedData) {
         case 'M':
             return Object.fromEntries(Object.entries(data)
                 .map(([key, value]) => [key, stripType(value)]));
+        case 'NULL':
+            return null;
         default:
             throw new Error(`Unexpected type: ${type} (${typedData})`);
     }

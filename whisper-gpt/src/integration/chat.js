@@ -74,7 +74,6 @@ export async function* streamChatCompletion({ messages, options = {}, user, inpu
             throw new Error(`Unexpected item: ${JSON.stringify(item)}`);
         });
     } catch (error) {
-        console.error(error);
         reply = [ rawReply ];
     }
 
