@@ -100,11 +100,17 @@ textarea {
     background-color: #ff3300;
 }
 
+button#createAgentButton {
+    background-color: #2196F3;
+    margin-top: 1rem;
+}
+
 /* Control bar buttons */
 #recordButton,
 #stopAudioButton,
 #sendTextButton,
-#muteButton {
+#muteButton,
+#createAgentButton {
     color: white;
     font-size: 1.5rem;
     height: 3rem;
@@ -202,7 +208,6 @@ textarea {
 #systemInput {
     width: 100%;
     resize: vertical;
-    margin-top: 1rem;
 }
 
 #textInput {

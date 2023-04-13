@@ -90,7 +90,7 @@ async function sendTextMessage() {
             listItem.remove();
         }
     } else {
-        await requestChatResponse(getSystemPrompt(), messages);
+        await requestChatResponse(await getSystemPrompt(), messages);
     }
 }
 
@@ -156,9 +156,10 @@ async function reloadImage(event) {
 
 
 // Get the full system prompt, including presets and custom input
-function getSystemPrompt() {
+async function getSystemPrompt() {
     const customPrompt = document.getElementById('systemInput').value;
-    const promptParts = Promise.all(selectedPrompts.map(async p => (await getPromptData(p)).text))
+    const promptParts = (await Promise.all(selectedPrompts
+            .map(async p => (await getPromptData(p)).text)))
         .concat([customPrompt]);
     return promptParts.join('\n\n').trim();
 }
@@ -412,10 +413,10 @@ function registerChatControls() {
         });
 }
 
-function registerSystemPromptControls() {
+async function registerSystemPromptControls() {
     const systemPromptCopyButton = document.getElementById('systemPromptCopyButton');
-    bindClick(systemPromptCopyButton, () => {
-        navigator.clipboard.writeText(getSystemPrompt());
+    bindClick(systemPromptCopyButton, async () => {
+        navigator.clipboard.writeText(await getSystemPrompt());
         showMessageBox(systemPromptCopyButton, 'Copied prompt to clipboard!');
     });
 }

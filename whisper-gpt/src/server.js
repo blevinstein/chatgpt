@@ -400,6 +400,10 @@ async function main() {
         res.sendFile('views/index.html', { root: process.cwd() });
     });
 
+    app.get('/createAgent', function (req, res) {
+        res.sendFile('views/createAgent.html', { root: process.cwd() });
+    });
+
     app.get('/gallery', function (req, res) {
         res.sendFile('views/gallery.html', { root: process.cwd() });
     });

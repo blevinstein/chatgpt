@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whisper ChatGPT</title>
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.0/css/all.min.css"
+        crossorigin="anonymous">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div id="headerBar">
+        <a href="/" id="whisperLink"><h1>Whisper</h1></a>
+        <a href="/image" id="imageLink"><h1>Image</h1></a>
+        <a href="/gallery" id="imageLink"><h1>Gallery</h1></a>
+        <a id="restart" href="/">Restart</a>
+        <a id="logout" href="/logout">Logout</a>
+    </div>
+
+    <div id="chatContainer">
+        <div id="promptButtonContainer">
+          <!-- Automatically generated promptButton elements go here -->
+        </div>
+        <div id="controlBar">
+            <textarea id="systemInput" rows="2" placeholder="(additional system instructions)"></textarea>
+            <button id="createAgentButton">Create</button>
+        </div>
+
+        <footer>
+            <a id="showOptions" href="#">Options</a>
+            <div id="optionsReveal" class="hidden">
+                <pre id="optionsInstructions"></pre>
+                <div id="optionsContainer">
+                    <textarea id="options"></textarea>
+                    <button id="resetOptionsButton"><i class="fa fa-undo"></i></button>
+                </div>
+            </div>
+            <p id="buildTimeContainer">Build time: <span id="buildTime"></span></p>
+        </footer>
+    </div>
+
+    <div id="templateLibrary" class="hidden">
+        <!-- Spinner -->
+        <div class="spinner"></div>
+
+        <!-- Prompt button -->
+        <button class="promptButton"></button>
+    </div>
+
+    <script src="/common.js"></script>
+    <script src="/audio.js"></script>
+    <script src="/chat.js"></script>
+    <script src="/createAgent.js"></script>
+</body>
+</html>
+
+

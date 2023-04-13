@@ -147,7 +147,7 @@ async function describeImage(event) {
 document.addEventListener('DOMContentLoaded', async () => {
     registerAudioButtons();
     registerChatControls();
-    registerSystemPromptControls();
+    await registerSystemPromptControls();
     await registerOptionsControls();
     await fetchPrompts(['dan', 'image', 'image_edit', 'json_output']);
 
