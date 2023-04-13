@@ -314,7 +314,6 @@ async function main() {
             });
 
             const { value: updatedReply } = await chatCompletion.next();
-            const updatedText = updatedReply.filter(r => typeof r === 'string').join('\n\n');
             // Now, send the full result with images to the frontend.
             writeEvent('imagesLoaded', {
                 language,
@@ -464,6 +463,7 @@ async function main() {
                 systemPrompt,
                 messages: [],
                 storage: {},
+                logs: [],
             });
             res.status(200).json({ status: 'CREATED', id });
         } catch (error) {
@@ -472,13 +472,32 @@ async function main() {
         }
     });
 
+    // TODO: app.post('/agent/:id') to update agent settings?
+
     app.post('/agent/:id/chat', async (req, res) => {
         try {
             const { id } = req.params;
             const { message } = req.body;
             const agent = await getAgent(id);
             agent.messages.push({ role: 'user', content: message });
-            // TODO: If executionMode == 'CHAT', request a response from the bot
+
+            // TODO: Intelligently truncate messages when it gets too long
+            // TODO: Add additional system prompt immediately before response with context?
+            const chatCompletion = generateChatCompletion({
+                messages: [{ role: 'system', content: agent.systemPrompt }].concat(agent.messages),
+                options: agent.options,
+                user: getUser(req),
+            });
+            const { value: inferId } = await chatCompletion.next();
+            agent.logs.push({
+                type: 'chat',
+                inferId,
+                logLink: `${HOST}/chatLog/${inferId}`,
+            });
+            const { value: _reply } = await chatCompletion.next();
+            const { value: updatedReply } = await chatCompletion.next();
+            agent.messages.push({ role: 'assistant', content: updatedReply });
+
             await putAgent(agent);
             res.status(200).json({ messages: agent.messages });
         } catch (error) {

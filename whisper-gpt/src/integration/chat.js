@@ -2,7 +2,7 @@
 import dotenv from 'dotenv';
 import { Configuration, OpenAIApi } from 'openai';
 
-import { COLOR, createId, hashValue } from '../common.js';
+import { COLOR, createId, hashValue, HOST, measureTime } from '../common.js';
 import { downloadFileFromS3, LOGS_BUCKET, uploadFileToS3 } from './aws.js';
 import { generateImageWithRetry } from './image.js';
 
