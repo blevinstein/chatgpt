@@ -21,17 +21,23 @@ import {
     renderJsonReply
 } from './common.js';
 import {
-    downloadFileFromS3,
+    transcribeAudioFile,
+} from './integration/whisper.js';
+import {
     generateChatCompletion,
+    updateImageInChatLog
+} from './integration/chat.js';
+import {
     generateImageWithRetry,
-    getVoices,
     IMAGE_HOST,
     interpretImage,
+} from './integration/image.js';
+import {
+    downloadFileFromS3,
+    getVoices,
     listFilesInS3,
     synthesizeSpeech,
-    transcribeAudioFile,
-    updateImageInChatLog
-} from './integrations.js';
+} from './integration/aws.js';
 
 const markdown = MarkdownIt({
     html: true,
@@ -82,7 +88,6 @@ async function main() {
     app.use(cors());
 
     // Setup JSON parsing
-    //app.use(express.json());
     app.use(bodyParser.json({limit: '50mb'}));
 
     // Initialize Passport and enable session support
@@ -116,6 +121,8 @@ async function main() {
 
     // Setup static serving
     app.use(express.static('static'));
+
+    // Login endpoints
     app.get('/login',
         passport.authenticate('google', { scope: ['profile', 'email'] }));
 
@@ -132,11 +139,12 @@ async function main() {
         })(req, res, next);
     });
 
-
+    // Health check for load balancer
     app.get('/health-check', (req, res) => res.status(200).send('OK'));
 
     // ***** NOTE ***** Authenticated endpoints must go below this line, while unauthenticated endpoints
     // must go above this line!!!
+
     if (argv.auth) {
         app.use(ensureAuthenticated);
     } else {
@@ -236,7 +244,7 @@ async function main() {
         let { type, prompt, inputImage, negativePrompt, options = {} } = req.body;
         const transformOptions = {
             ...options,
-            imageModel: options.imageTransformModel || DEFAULT_IMG2IMG_MODEL,
+            imageModel: options.imageTransformModel,
             imageModelId: options.imageTransformModelId,
         };
         try {
@@ -437,6 +445,13 @@ async function main() {
             res.status(200).send(buildTime);
         } catch (error) {
             res.status(500).send('Build time not found!');
+        }
+    });
+
+    app.get('/create-agent', async (req, res) => {
+        try {
+        } catch (error) {
+            res.status(500).send(`Failed to create agent: ${error.message}`);
         }
     });
 

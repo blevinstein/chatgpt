@@ -1,24 +1,13 @@
-import AWS from 'aws-sdk';
 import axios from 'axios';
 import dotenv from 'dotenv';
 import { backOff } from 'exponential-backoff';
-import FormData from 'form-data';
-import fs from 'fs';
 import { Configuration, OpenAIApi } from 'openai';
 import path from 'path';
 
-import { COLOR, createInferId, getAudioDuration, hashValue, HOST, measureTime } from './common.js';
+import { COLOR, createInferId, hashValue } from '../common.js';
+import { downloadFileFromS3, IMAGE_BUCKET, LOGS_BUCKET, uploadFileToS3 } from './aws.js';
 
 dotenv.config();
-
-AWS.config.update({
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    region: process.env.AWS_REGION,
-});
-
-const s3 = new AWS.S3();
-const polly = new AWS.Polly();
 
 const OPENAI_KEY = process.env.OPENAI_KEY;
 const configuration = new Configuration({
@@ -58,15 +47,7 @@ const STABLE_DIFFUSION_NEGATIVE_PROMPT = 'deformed iris, deformed pupils, text, 
 
 const STABILITY_AI_KEY = process.env.STABILITY_AI_KEY;
 
-const DEFAULT_IMG2IMG_MODEL = 'stableDiffusion_img2img';
-const DEFAULT_IMG2IMG_MODEL_ID = '';
 const DEFAULT_IMG2IMG_PROMPT_STRENGTH = 0.5;
-
-const OPENAI_CHAT_PRICE = {
-    // Costs per token
-    'gpt-3.5-turbo': 0.002e-3,
-    'gpt-4': 0.03e-3,
-};
 
 const OPENAI_IMAGE_PRICE = {
     // Fixed costs per image size
@@ -77,153 +58,14 @@ const OPENAI_IMAGE_PRICE = {
 
 const OPENAI_IMAGE_SIZE = '1024x1024';
 
-const WHISPER_PRICE = 0.006 / 60;
 const DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE = '768x768';
 
 // Stable diffusion via their API costs $10/mo for 1k requests
 const STABLE_DIFFUSION_PRICE = 0.01;
 
-const DEFAULT_CHAT_MODEL = 'gpt-3.5-turbo';
-
 const DEFAULT_DREAMBOOTH_MODEL_ID = 'midjourney';
 
-const LOGS_BUCKET = 'whisper-gpt-logs';
-const IMAGE_BUCKET = 'whisper-gpt-generated';
 export const IMAGE_HOST = `https://${IMAGE_BUCKET}.s3.amazonaws.com`;
-
-export function uploadFileToS3(bucketName, key, data, contentType) {
-    const params = {
-        Bucket: bucketName,
-        Key: key,
-        Body: data,
-        ContentType: contentType,
-    };
-
-    return new Promise((resolve, reject) => {
-        s3.upload(params, (err, data) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(data);
-            }
-        });
-    });
-}
-
-export function downloadFileFromS3(bucketName, key) {
-    const params = {
-        Bucket: bucketName,
-        Key: key,
-    };
-
-    return new Promise((resolve, reject) => {
-        s3.getObject(params, (err, data) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(data);
-            }
-        });
-    });
-}
-
-export async function listFilesInS3(bucketName) {
-    const params = {
-        Bucket: bucketName,
-    };
-
-    const results = [];
-    let continuationToken;
-    let listResponse;
-    do {
-        listResponse = await new Promise((resolve, reject) => {
-          s3.listObjectsV2({ ...params, ContinuationToken: continuationToken }, (err, data) => {
-              if (err) {
-                  reject(err);
-              } else {
-                  resolve(data);
-              }
-          });
-        });
-        results.push(...listResponse.Contents);
-        continuationToken = listResponse.NextContinuationToken;
-    } while (listResponse.IsTruncated);
-
-    return results;
-}
-
-export async function transcribeAudioFile(filePath, user) {
-    const formData = new FormData();
-    formData.append('file', fs.createReadStream(filePath));
-    formData.append('model', 'whisper-1');
-
-    const audioDuration = await getAudioDuration(filePath);
-    const cost = Math.ceil(audioDuration) * WHISPER_PRICE;
-
-    try {
-        const [responseTime, response] = await measureTime(() => axios.post(
-            'https://api.openai.com/v1/audio/transcriptions',
-            formData,
-            {
-                headers: {
-                    'Authorization': `Bearer ${OPENAI_KEY}`,
-                    ...formData.getHeaders(),
-                },
-            }
-        ));
-        const inferId = createInferId();
-        await uploadFileToS3(
-            LOGS_BUCKET,
-            `transcribe-${inferId}.json`,
-            JSON.stringify({
-                type: 'transcribe',
-                input: filePath,
-                response: response.data,
-                responseTime,
-                user,
-            }, null, 4),
-            'application/json');
-
-        console.log(`Transcribed ${audioDuration}s of audio: ${response.data.text} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset}) [${inferId}] (${(responseTime/1000).toFixed(2)}s)`);
-        return response.data.text;
-    } catch (error) {
-        console.error('Error transcribing audio:', error);
-        return null;
-    }
-}
-
-export function getVoices() {
-    return new Promise((resolve, reject) => {
-        polly.describeVoices({}, (err, data) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(data.Voices);
-            }
-        });
-    });
-}
-
-const DEFAULT_VOICE_ID = 'Matthew';
-export function synthesizeSpeech(text, language, voice) {
-    const params = {
-        OutputFormat: "mp3",
-        Text: language ? `<lang xml:lang="${language}">${text}</lang>` : text,
-        TextType: 'ssml',
-        VoiceId: voice || DEFAULT_VOICE_ID,
-        Engine: 'neural',
-    };
-
-    return new Promise((resolve, reject) => {
-        polly.synthesizeSpeech(params, (err, data) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(data);
-            }
-        });
-    });
-}
 
 function getLastImage(messages) {
     const images = messages.flatMap(message =>
@@ -231,138 +73,6 @@ function getLastImage(messages) {
     if (images.length > 0) {
         return images[images.length - 1];
     }
-}
-
-export async function* generateChatCompletion({ messages, options = {}, user, inputImage }) {
-    const model = options.chatModel || DEFAULT_CHAT_MODEL;
-    const input = {
-        model,
-        messages: messages.map(({ role, content }) => ({ role, content: JSON.stringify(content) })),
-        user: hashValue(user),
-    };
-    const [responseTime, response] = await measureTime(() => openai.createChatCompletion(input));
-    const cost = OPENAI_CHAT_PRICE[model] * response.data.usage.total_tokens;
-    const inferId = createInferId();
-    yield inferId;
-
-    const rawReply = response.data.choices[0].message.content;
-    console.log(`Assistant reply: ${rawReply} (${COLOR.red}cost: ${COLOR.green}\$${cost.toFixed(4)}${COLOR.reset}) [${inferId}] (${(responseTime/1000).toFixed(2)}s)`);
-
-    // Be forgiving about what you accept from the chatbot, but strict about the output format.
-    let reply;
-    try {
-        reply = JSON.parse(rawReply);
-        if (!Array.isArray(reply) && typeof reply === 'object' && !!reply.type) {
-            console.warn("JSON format violation: single object must be enclosed in list");
-            reply = [ reply ];
-        }
-        if (!Array.isArray(reply) && typeof reply === 'string') {
-            console.warn("JSON format violation: single string must be enclosed in list");
-            reply = [ reply ];
-        }
-        if (!Array.isArray(reply)) {
-            throw new Error(`Parsing failed, fallback to text treatment: ${rawReply}`);
-        }
-        reply.forEach(item => {
-            if (typeof item === 'string') return;
-            if (typeof item === 'object' && !!item.type) return;
-            throw new Error(`Unexpected item: ${JSON.stringify(item)}`);
-        });
-    } catch (error) {
-        console.error(error);
-        reply = [ rawReply ];
-    }
-
-    // Remove imageFile values from certain commands, if they were erroneously provided.
-    for (let element of reply) {
-        if (element.type === 'image' || element.type === 'editImage') {
-            element.imageFile = undefined;
-        }
-    }
-
-    yield reply;
-
-    const promises = reply.map(element => {
-        if (typeof element === 'string') {
-            return Promise.resolve(element);
-        } else if (typeof element === 'object') {
-            switch (element.type) {
-                case 'image':
-                    return generateImageWithRetry({
-                        prompt: element.prompt,
-                        negativePrompt: element.negativePrompt,
-                        options,
-                        user
-                    }).then((imageFile) => ({ ...element, imageFile }));
-                case 'editImage':
-                    const transformOptions = {
-                        ...options,
-                        imageModel: options.imageTransformModel || DEFAULT_IMG2IMG_MODEL,
-                        imageModelId: options.imageTransformModelId,
-                    };
-                    return generateImageWithRetry({
-                        prompt: element.prompt,
-                        negativePrompt: element.negativePrompt,
-                        options: transformOptions,
-                        user,
-                        inputImage: element.inputFile || inputImage || getLastImage(messages),
-                    }).then((imageFile) => ({ ...element, imageFile }));
-                default:
-                    throw new Error(`Element of unexpected type: ${JSON.stringify(element)}`);
-            }
-        }
-    });
-    const updatedReply = Array.from(await Promise.all(promises));
-    await uploadFileToS3(
-        LOGS_BUCKET,
-        `chat-${inferId}.json`,
-        JSON.stringify({
-            type: 'createChatCompletion',
-            input,
-            response: response.data,
-            cost,
-            responseTime,
-            user,
-            inputImage,
-            messages,
-            reply: updatedReply,
-            options,
-            selfLink: `${HOST}?inferId=${inferId}`,
-        }, null, 4),
-        'application/json');
-    yield updatedReply;
-}
-
-function updateImageInMessage(messageContents, imageData) {
-    const elementIndex = messageContents.findIndex(e =>
-        e.type === imageData.type && e.prompt === imageData.prompt);
-    if (elementIndex >= 0) {
-        messageContents[elementIndex] = imageData;
-        return true;
-    }
-}
-
-export async function updateImageInChatLog(inferId, imageData) {
-    console.log(`Updating chatLog ${inferId} to add image: ${JSON.stringify(imageData)}`);
-    const chatLog = JSON.parse(
-        (await downloadFileFromS3(LOGS_BUCKET, `chat-${inferId}.json`)).Body.toString());
-
-    // Update messages
-    const messages = chatLog.messages;
-    for (let message of messages) {
-        if (updateImageInMessage(message.content, imageData)) {
-            break;
-        }
-    }
-    // Update reply
-    const reply = chatLog.reply;
-    updateImageInMessage(reply, imageData);
-
-    await uploadFileToS3(
-        LOGS_BUCKET,
-        `chat-${inferId}.json`,
-        JSON.stringify({ ...chatLog, messages, reply }),
-        'application/json');
 }
 
 function getGenerateImageFunction(options) {
