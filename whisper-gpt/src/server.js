@@ -13,7 +13,7 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
 import {
-    createStreamId,
+    createId,
     detectLanguage,
     getExtensionByMimeType,
     HOST,
@@ -34,8 +34,10 @@ import {
 } from './integration/image.js';
 import {
     downloadFileFromS3,
+    getAgent,
     getVoices,
     listFilesInS3,
+    putAgent,
     synthesizeSpeech,
 } from './integration/aws.js';
 
@@ -273,7 +275,7 @@ async function main() {
     // Chat step 1: send a POST request here with your argument payload
     const chatArgs = new Map();
     app.post('/chatArgs', async (req, res) => {
-        const streamId = createStreamId();
+        const streamId = createId();
         chatArgs.set(streamId, req.body);
         console.log(`Chat request prepared [${streamId}]`);
         res.status(200).json({ streamId });
@@ -448,10 +450,33 @@ async function main() {
         }
     });
 
-    app.get('/create-agent', async (req, res) => {
+    app.get('/agent/:id', async (req, res) => {
         try {
+            const { id } = req.params;
+            const agent = await getAgent(id);
+            res.status(200).json(agent);
         } catch (error) {
-            res.status(500).send(`Failed to create agent: ${error.message}`);
+            console.error(error);
+            res.status(500).send(error.message);
+        }
+    });
+
+    // Create new agent
+    app.post('/agent', async (req, res) => {
+        try {
+            const { systemPrompt, options } = req.body;
+            const id = createId();
+            await putAgent({
+                id,
+                options,
+                systemPrompt,
+                messages: [],
+                state: {},
+            });
+            res.status(200).json({ status: 'CREATED', id });
+        } catch (error) {
+            console.error(error);
+            res.status(500).send(error.message);
         }
     });
 

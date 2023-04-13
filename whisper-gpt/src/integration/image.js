@@ -4,7 +4,7 @@ import { backOff } from 'exponential-backoff';
 import { Configuration, OpenAIApi } from 'openai';
 import path from 'path';
 
-import { COLOR, createInferId, hashValue } from '../common.js';
+import { COLOR, createId, hashValue } from '../common.js';
 import { downloadFileFromS3, IMAGE_BUCKET, LOGS_BUCKET, uploadFileToS3 } from './aws.js';
 
 dotenv.config();
@@ -196,7 +196,7 @@ export async function generateImageWithReplicate({ prompt, options, user, inputI
     const responseTime = performance.now() - startTime;
     const cost = statusResponse.data.metrics.predict_time * REPLICATE_COST[modelId];
 
-    const inferId = createInferId();
+    const inferId = createId();
     const imageFile = `${inferId}.png`;
     const imageUrl = `${IMAGE_HOST}/${imageFile}`;
 
@@ -246,7 +246,7 @@ export async function generateImageWithDallE({ prompt, options, user }) {
         const imageResponse = await axios.get(downloadUrl, { responseType: 'arraybuffer' });
         const responseTime = performance.now() - startTime;
 
-        const inferId = createInferId();
+        const inferId = createId();
         const imageFile = `${inferId}.png`;
         const imageUrl = `${IMAGE_HOST}/${imageFile}`;
         const cost = OPENAI_IMAGE_PRICE[imageSize];
@@ -281,7 +281,7 @@ export async function generateImageWithDallE({ prompt, options, user }) {
 export async function generateImageWithStableDiffusion({ prompt, options, user, inputImage, negativePrompt }) {
     const [width, height] = (options.imageSize || DEFAULT_STABLE_DIFFUSION_IMAGE_SIZE)
         .split('x').map(Number);
-    const inferId = createInferId();
+    const inferId = createId();
     const isDreambooth = options.imageModel === 'dreambooth' || options.imageModel === 'dreambooth_img2img';
 
     if (isDreambooth && STABLE_DIFFUSION_PROMPT_ENHANCEMENT[options.imageModelId]) {
@@ -423,7 +423,7 @@ export async function interpretImage(question, options, user, inputImage) {
         const responseTime = performance.now() - startTime;
         const cost = statusResponse.data.metrics.predict_time * REPLICATE_COST['blip-2'];
 
-        const inferId = createInferId();
+        const inferId = createId();
 
         await uploadFileToS3(
             LOGS_BUCKET,

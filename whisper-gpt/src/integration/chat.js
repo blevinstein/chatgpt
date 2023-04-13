@@ -2,6 +2,7 @@
 import dotenv from 'dotenv';
 import { Configuration, OpenAIApi } from 'openai';
 
+import { COLOR, createId, hashValue } from '../common.js';
 import { downloadFileFromS3, LOGS_BUCKET, uploadFileToS3 } from './aws.js';
 import { generateImageWithRetry } from './image.js';
 
@@ -32,7 +33,7 @@ export async function* generateChatCompletion({ messages, options = {}, user, in
     };
     const [responseTime, response] = await measureTime(() => openai.createChatCompletion(input));
     const cost = OPENAI_CHAT_PRICE[model] * response.data.usage.total_tokens;
-    const inferId = createInferId();
+    const inferId = createId();
     yield inferId;
 
     const rawReply = response.data.choices[0].message.content;

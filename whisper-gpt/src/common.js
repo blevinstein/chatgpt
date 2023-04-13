@@ -10,11 +10,7 @@ const markdown = MarkdownIt({
     typographer: false,
 });
 
-export function createStreamId() {
-    return crypto.randomBytes(16).toString('hex');
-}
-
-export function createInferId() {
+export function createId() {
     return crypto.randomBytes(6).toString('hex');
 }
 

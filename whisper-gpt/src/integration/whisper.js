@@ -4,7 +4,7 @@ import FormData from 'form-data';
 import fs from 'fs';
 import { Configuration, OpenAIApi } from 'openai';
 
-import { COLOR, createInferId, getAudioDuration, measureTime } from '../common.js';
+import { COLOR, createId, getAudioDuration, measureTime } from '../common.js';
 import { LOGS_BUCKET, uploadFileToS3 } from './aws.js';
 
 dotenv.config();
@@ -36,7 +36,7 @@ export async function transcribeAudioFile(filePath, user) {
                 },
             }
         ));
-        const inferId = createInferId();
+        const inferId = createId();
         await uploadFileToS3(
             LOGS_BUCKET,
             `transcribe-${inferId}.json`,
