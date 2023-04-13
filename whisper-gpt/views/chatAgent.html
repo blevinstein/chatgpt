@@ -19,12 +19,18 @@
     </div>
 
     <div id="chatContainer">
-        <div id="promptButtonContainer">
-          <!-- Automatically generated promptButton elements go here -->
-        </div>
+        <ul id="messageList">
+        </ul>
         <div id="controlBar">
-            <textarea id="systemInput" rows="2" placeholder="(additional system instructions)"></textarea>
-            <button id="createAgentButton">Create</button>
+            <div id="micControls">
+                <button id="recordButton"><i class="fa fa-microphone"></i></button>
+                <button id="stopAudioButton"><i class="fa fa-stop"></i></button>
+                <button id="muteButton"><i class="fa fa-volume-up"></i></button>
+            </div>
+            <div id="textControls">
+                <textarea id="textInput" rows="2" placeholder="user:"></textarea>
+                <button id="sendTextButton"><i class="fa fa-comment"></i></button>
+            </div>
         </div>
 
         <footer>
@@ -44,13 +50,32 @@
         <!-- Spinner -->
         <div class="spinner"></div>
 
+        <!-- List item with spinner -->
+        <li class="listItem">
+            <div class="spinner"></div>
+        </li>
+
+        <!-- Rendered message, goes inside the <li> replacing the spinner -->
+        <div class="message">
+            <div class="header">
+                <b class="username"></b>
+                <div class="buttonContainer">
+                    <div class="messageBox"></div>
+                    <button class="shareButton"><i class="fa fa-share"></i></button>
+                    <button class="copyButton"><i class="fa fa-clone"></i></button>
+                </div>
+            </div>
+            <div class="contents"></div>
+        </div>
+
         <!-- Prompt button -->
         <button class="promptButton"></button>
     </div>
 
     <script src="/common.js"></script>
+    <script src="/audio.js"></script>
     <script src="/chat.js"></script>
-    <script src="/createAgent.js"></script>
+    <script src="/chatAgent.js"></script>
 </body>
 </html>
 

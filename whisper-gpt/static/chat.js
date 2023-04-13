@@ -79,18 +79,46 @@ async function sendTextMessage() {
 
     textInput.value = '';
     if (message.length > 0) {
-        try {
-            const listItem = createListItemWithSpinner();
-            // TODO: Add support for user-generated image commands etc? Regex-based transformation?
-            messages.push({ role: 'user', content: [ message ]});
-            addChatMessage('user', listItem, message);
-            document.getElementById('textInput').scrollIntoView();
-        } catch (error) {
-            console.error('Error rendering message:', error);
-            listItem.remove();
-        }
+        const listItem = createListItemWithSpinner();
+        // TODO: Add support for user-generated image commands etc? Regex-based transformation?
+        messages.push({ role: 'user', content: [ message ]});
+        addChatMessage('user', listItem, message);
+        document.getElementById('textInput').scrollIntoView();
     } else {
-        await requestChatResponse(await getSystemPrompt(), messages);
+        await requestChatResponse();
+    }
+}
+
+// Add a user-provided text message to the chat and request agent resposne
+// TODO: Prevent request if another chat request is in-flight
+async function sendAgentMessage() {
+    const message = textInput.value.trim();
+
+    textInput.value = '';
+    if (!message.length) {
+        return;
+    }
+    const searchParams = new URLSearchParams(window.location.search);
+    const agentId = searchParams.get('agentId');
+    let listItem = createListItemWithSpinner();
+
+    try {
+        const response = await fetch(`/agent/${agentId}/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: [ message ] }),
+        });
+
+        if (!response.ok) throw response.statusText;
+
+        const { messages } = await response.json();
+        for (let newMessage of messages.slice(messages.length - 2)) {
+            addChatMessage(newMessage.role, listItem || createListItemWithSpinner(), newMessage.content);
+            listItem = null;
+        }
+        document.getElementById('textInput').scrollIntoView();
+    } catch (error) {
+        console.error('Error getting agent chat response:', error);
     }
 }
 
@@ -170,7 +198,8 @@ function setInferId(inferId) {
 }
 
 // Request a chat response from the chatbot API
-async function requestChatResponse(systemPrompt, messages) {
+async function requestChatResponse() {
+    const systemPrompt = await getSystemPrompt();
     const chatListItem = createListItemWithSpinner();
 
     try {
@@ -324,6 +353,45 @@ async function fetchBuildTime() {
     }
 }
 
+async function fetchAgent(agentId) {
+    const response = await fetch(`/agent/${agentId}`);
+
+    if (!response.ok) {
+        console.error('Error fetching agent:', response.statusText);
+        return;
+    }
+    const agentData = await response.json();
+
+    const messages = agentData.messages;
+
+    // Create list items synchronously, to ensure messages are rendered in the correct
+    // order.
+    const listItems = messages.map(() => createListItemWithSpinner());
+
+    // Render all the messages server-side, using the already-generated images.
+    await Promise.all(messages.map(async (message, messageIndex) => {
+        const renderResponse = await fetch('/renderMessage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: message.content,
+                options: getOptions(),
+            }),
+        });
+
+        if (!renderResponse.ok) throw new Error('Failed to render message:', renderResponse.statusText);
+
+        const { html } = await renderResponse.json();
+        addChatMessage(
+            message.role,
+            listItems[messageIndex],
+            html);
+    }));
+
+    // Move to the text input element, if that requires scrolling.
+    document.getElementById('textInput').scrollIntoView();
+}
+
 // Get chat logs from the server, and update page state to match
 async function fetchChatLogs(inferId) {
     const response = await fetch(`/chatLog/${inferId}`);
@@ -399,16 +467,16 @@ async function fetchChatLogs(inferId) {
     document.getElementById('textInput').scrollIntoView();
 }
 
-function registerChatControls() {
+function registerChatControls(sendFunction = sendTextMessage) {
     // Chat button:
-    bindClick(document.getElementById('sendTextButton'), sendTextMessage);
+    bindClick(document.getElementById('sendTextButton'), sendFunction);
     // Text input:
     document.getElementById('textInput')
         .addEventListener('keypress', async (event) => {
             if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
                 stopSpeaking();
-                await sendTextMessage();
+                await sendFunction();
             }
         });
 }

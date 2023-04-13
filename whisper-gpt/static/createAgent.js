@@ -5,14 +5,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Display server build time:
     await fetchBuildTime();
 
-    // TODO: Load chat state from agent logs
-    /*
-    const queryParams = new Map(new URLSearchParams(window.location.search).entries());
-    if (queryParams.has('inferId') && queryParams.get('inferId')) {
-        await fetchChatLogs(queryParams.get('inferId'));
-    }
-    */
-
     bindClick(document.getElementById('createAgentButton'), async () => {
         const response = await fetch('/agent', {
             method: 'POST',

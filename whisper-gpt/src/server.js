@@ -404,6 +404,10 @@ async function main() {
         res.sendFile('views/createAgent.html', { root: process.cwd() });
     });
 
+    app.get('/chatAgent', function (req, res) {
+        res.sendFile('views/chatAgent.html', { root: process.cwd() });
+    });
+
     app.get('/gallery', function (req, res) {
         res.sendFile('views/gallery.html', { root: process.cwd() });
     });
