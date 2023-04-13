@@ -24,6 +24,7 @@ import {
 } from './integration/whisper.js';
 import {
     generateChatCompletion,
+    streamChatCompletion,
     updateImageInChatLog
 } from './integration/chat.js';
 import {
@@ -39,6 +40,10 @@ import {
     putAgent,
     synthesizeSpeech,
 } from './integration/aws.js';
+import {
+    browsePage,
+    summarizeText,
+} from './integration/browse.js';
 
 const UPLOAD_FOLDER = 'uploads';
 const PROMPT_FOLDER = 'prompt';
@@ -297,7 +302,7 @@ async function main() {
         };
 
         try {
-            const chatCompletion = generateChatCompletion({ messages, options, user: getUser(req), inputImage });
+            const chatCompletion = streamChatCompletion({ messages, options, user: getUser(req), inputImage });
             const { value: inferId } = await chatCompletion.next();
             writeEvent('setInferId', { inferId });
 
@@ -491,20 +496,57 @@ async function main() {
 
             // TODO: Intelligently truncate messages when it gets too long
             // TODO: Add additional system prompt immediately before response with context?
-            const chatCompletion = generateChatCompletion({
+            const { inferId, reply } = await generateChatCompletion({
                 messages: [{ role: 'system', content: agent.systemPrompt }].concat(agent.messages),
                 options: agent.options,
                 user: getUser(req),
             });
-            const { value: inferId } = await chatCompletion.next();
             agent.logs.push({
                 type: 'chat',
                 inferId,
                 logLink: `${HOST}/chatLog/${inferId}`,
             });
-            const { value: _reply } = await chatCompletion.next();
-            const { value: updatedReply } = await chatCompletion.next();
-            agent.messages.push({ role: 'assistant', content: updatedReply });
+            agent.messages.push({ role: 'assistant', content: reply });
+
+            // Generate additional system messages in response
+            // TODO: Add safeguards around browsing capability
+            for (let part of reply) {
+                if (typeof part === 'object') {
+                    switch (part.type) {
+                        case 'browse':
+                            try {
+                                const { html, text } = await browsePage(part.url);
+                                const { inferIds, summary } = await summarizeText({
+                                    text,
+                                    question: part.question,
+                                    options: agent.options,
+                                    user: getUser(req),
+                                });
+                                // DEBUG
+                                console.log({ summary });
+                                agent.messages.push({
+                                    role: 'system',
+                                    content: [{
+                                        type: 'browseResult',
+                                        url: part.url,
+                                        summary,
+                                    }],
+                                });
+                            } catch (error) {
+                                console.error(error);
+                                agent.messages.push({
+                                    role: 'system',
+                                    content: [{
+                                        type: 'browseResult',
+                                        url: part.url,
+                                        error,
+                                    }],
+                                });
+                            }
+                            break;
+                    }
+                }
+            }
 
             await putAgent(agent);
             res.status(200).json({ messages: agent.messages });

@@ -24,7 +24,21 @@ const OPENAI_CHAT_PRICE = {
     'gpt-4': 0.03e-3,
 };
 
-export async function* generateChatCompletion({ messages, options = {}, user, inputImage }) {
+// Simple wrapper around streamChatCompletion for cases when we don't care about streaming results
+export async function generateChatCompletion({ messages, options = {}, user, inputImage }) {
+    const chatCompletion = streamChatCompletion({
+        messages,
+        options,
+        user,
+        inputImage,
+    });
+    const { value: inferId } = await chatCompletion.next();
+    const { value: _initialReply } = await chatCompletion.next();
+    const { value: reply } = await chatCompletion.next();
+    return { inferId, reply };
+}
+
+export async function* streamChatCompletion({ messages, options = {}, user, inputImage }) {
     const model = options.chatModel || DEFAULT_CHAT_MODEL;
     const input = {
         model,
@@ -98,6 +112,9 @@ export async function* generateChatCompletion({ messages, options = {}, user, in
                         user,
                         inputImage: element.inputFile || inputImage || getLastImage(messages),
                     }).then((imageFile) => ({ ...element, imageFile }));
+                case 'browse':
+                    // Do nothing
+                    return Promise.resolve(element);
                 default:
                     throw new Error(`Element of unexpected type: ${JSON.stringify(element)}`);
             }

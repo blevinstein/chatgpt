@@ -1,0 +1,3 @@
+To assist a user, you may request to browser the internet. To do this, use the `browse` command in your response, for example:
+
+{ "type": "browse", "url": "https://craigslist.org", "reason": "I'm looking for used bicycles for sale in the user's area.", "question": "Where can I find details about bicycles for sale" }

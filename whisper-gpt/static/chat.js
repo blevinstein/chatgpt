@@ -113,7 +113,8 @@ async function sendAgentMessage() {
 
         const { messages } = await response.json();
         for (let newMessage of messages.slice(messages.length - 2)) {
-            addChatMessage(newMessage.role, listItem || createListItemWithSpinner(), newMessage.content);
+            const { html } = await renderMessage(newMessage.content);
+            addChatMessage(newMessage.role, listItem || createListItemWithSpinner(), html);
             listItem = null;
         }
         document.getElementById('textInput').scrollIntoView();
@@ -353,6 +354,21 @@ async function fetchBuildTime() {
     }
 }
 
+async function renderMessage(content) {
+    const response = await fetch('/renderMessage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            message: content,
+            options: getOptions(),
+        }),
+    });
+
+    if (!response.ok) throw new Error('Failed to render message:', response.statusText);
+
+    return response.json();
+}
+
 async function fetchAgent(agentId) {
     document.querySelector('#agentInfo #selfLink').href = `/chatAgent?agentId=${agentId}`;
     document.querySelector('#agentInfo #agentId').textContent = agentId;
@@ -376,18 +392,7 @@ async function fetchAgent(agentId) {
 
     // Render all the messages server-side, using the already-generated images.
     await Promise.all(messages.map(async (message, messageIndex) => {
-        const renderResponse = await fetch('/renderMessage', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                message: message.content,
-                options: getOptions(),
-            }),
-        });
-
-        if (!renderResponse.ok) throw new Error('Failed to render message:', renderResponse.statusText);
-
-        const { html } = await renderResponse.json();
+        const { html } = await renderMessage(message.content);
         addChatMessage(
             message.role,
             listItems[messageIndex],
@@ -448,18 +453,7 @@ async function fetchChatLogs(inferId) {
 
     // Render all the messages server-side, using the already-generated images.
     await Promise.all(messages.map(async (message, messageIndex) => {
-        const response = await fetch('/renderMessage', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                message: message.content,
-                options: getOptions(),
-            }),
-        });
-
-        if (!response.ok) throw new Error('Failed to render message:', response.statusText);
-
-        const { html } = await response.json();
+        const { html } = await renderMessage(message.content);
         addChatMessage(
             message.role,
             listItems[messageIndex],

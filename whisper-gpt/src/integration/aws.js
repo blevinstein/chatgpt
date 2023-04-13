@@ -126,11 +126,13 @@ function addType(data) {
     } else if (Array.isArray(data)) {
         return { L: data.map(d => addType(d)) };
     } else if (data instanceof Map) {
-      return { M: Object.fromEntries(Array.from(data.entries())
-          .map(([key, value]) => [key, addType(value)])) }
+        return { M: Object.fromEntries(Array.from(data.entries())
+            .map(([key, value]) => [key, addType(value)])) }
     } else if (typeof data === 'object') {
-      return { M: Object.fromEntries(Object.entries(data)
-          .map(([key, value]) => [key, addType(value)])) }
+        return { M: Object.fromEntries(Object.entries(data)
+            .map(([key, value]) => [key, addType(value)])) }
+    } else if (data === null || data === undefined) {
+      return { NULL: true };
     }
     throw new Error(`Unexpected input: ${data}`);
 }

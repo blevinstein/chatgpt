@@ -147,6 +147,12 @@ export function renderJsonReply(reply, loading = false) {
                     return `<span class="imageRetry">${JSON.stringify(element)}</span>`;
                 }
                 break;
+            case 'browse':
+                return `<span class="browseRequest">${JSON.stringify(element)}</span>`;
+                break;
+            case 'browseResult':
+                return `<span class="browseResult">${JSON.stringify(element)}</span>`;
+                break;
         }
     }).join('\n\n');
     return markdown.render(markdownReply);
