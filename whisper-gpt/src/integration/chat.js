@@ -115,7 +115,8 @@ export async function* streamChatCompletion({ messages, options = {}, user, inpu
                     // Do nothing
                     return Promise.resolve(element);
                 default:
-                    throw new Error(`Element of unexpected type: ${JSON.stringify(element)}`);
+                    console.warn(`Element of unexpected type: ${JSON.stringify(element)}`);
+                    return Promise.resolve(element);
             }
         }
     });

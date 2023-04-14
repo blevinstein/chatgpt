@@ -41,8 +41,8 @@ import {
     synthesizeSpeech,
 } from './integration/aws.js';
 import {
-    browsePage,
-    summarizeText,
+    fetchPage,
+    scanPage,
 } from './integration/browse.js';
 
 const UPLOAD_FOLDER = 'uploads';
@@ -498,15 +498,15 @@ async function main() {
 
             // TODO: Intelligently truncate messages when it gets too long
             // TODO: Add additional system prompt immediately before response with context?
-            const { inferId, reply } = await generateChatCompletion({
+            const { inferId: chatInferId, reply } = await generateChatCompletion({
                 messages: [{ role: 'system', content: agent.systemPrompt }].concat(agent.messages),
                 options: agent.options,
                 user: getUser(req),
             });
             agent.logs.push({
                 type: 'chat',
-                inferId,
-                logLink: `${HOST}/chatLog/${inferId}`,
+                inferId: chatInferId,
+                logLink: `${HOST}/chatLog/${chatInferId}`,
             });
             agent.messages.push({ role: 'assistant', content: reply });
 
@@ -517,19 +517,32 @@ async function main() {
                     switch (part.type) {
                         case 'browse':
                             try {
-                                const { html, text, links } = await browsePage(part.url);
-                                const { inferIds, summary } = await summarizeText({
-                                    text,
-                                    question: part.question,
+                                const { html, text } = await fetchPage(part.url);
+
+                                // DEBUG
+                                //console.log(html);
+
+                                const { inferIds, summary } = await scanPage({
+                                    url: part.url,
+                                    html,
+                                    task: part.task,
                                     options: agent.options,
                                     user: getUser(req),
                                 });
-                                console.log({ summary, html, links });
+                                inferIds.forEach(inferId => {
+                                    agent.logs.push({
+                                        type: 'browse',
+                                        inferId,
+                                        logLink: `${HOST}/chatLog/${inferId}`,
+                                    });
+                                });
+
                                 agent.messages.push({
                                     role: 'system',
                                     content: [{
                                         type: 'browseResult',
                                         url: part.url,
+                                        task: part.task,
                                         summary,
                                     }],
                                 });
