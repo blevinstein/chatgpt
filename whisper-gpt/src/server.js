@@ -36,6 +36,7 @@ import {
     downloadFileFromS3,
     getAgent,
     getVoices,
+    listAgents,
     listFilesInS3,
     putAgent,
     synthesizeSpeech,
@@ -485,6 +486,20 @@ async function main() {
         }
     });
 
+    app.get('/agents', async (req, res) => {
+        try {
+            const agents = (await listAgents()).map(({ id: agentId }) => ({
+                agentId,
+                chatLink: `${HOST}/chatAgent?agentId=${agentId}`,
+                logLink: `${HOST}/agent/${agentId}`,
+            }));
+            res.status(200).json({ agents });
+        } catch (error) {
+            console.error(error);
+            res.status(500).send(error.message);
+        }
+    });
+
     // TODO: app.post('/agent/:id') to update agent settings?
 
     app.post('/agent/:id/chat', async (req, res) => {
@@ -553,7 +568,7 @@ async function main() {
                                     content: [{
                                         type: 'browseResult',
                                         url: part.url,
-                                        error,
+                                        error: error.message,
                                     }],
                                 });
                             }

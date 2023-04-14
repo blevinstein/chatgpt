@@ -193,3 +193,22 @@ export function getAgent(id) {
         });
     });
 }
+
+export function listAgents() {
+    return new Promise((resolve, reject) => {
+        dynamo.scan({
+            TableName: AGENTS_DB,
+            ProjectionExpression: 'id',
+        }, (err, data) => {
+            if (err) {
+                reject(err);
+            } else {
+                if (!data.Items) {
+                    reject(new Error(`No items in response: ${JSON.stringify(data)}`));
+                } else {
+                  resolve(data.Items.map(item => stripType({ M: item })));
+                }
+            }
+        });
+    });
+}

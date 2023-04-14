@@ -15,6 +15,7 @@ export async function fetchPage(url) {
         // Remove raw data that is not useful
         root.querySelectorAll('script, style, noscript, head, svg > *').forEach(s => s.remove());
         root.querySelectorAll('img[src*="base64"]').forEach(s => s.removeAttribute('src'));
+        root.querySelectorAll('[style]').forEach(s => s.removeAttribute('style'));
         return { html: root.toString(), text: root.text };
 		} catch (error) {
 				console.error(`Error browsing URL ${url}: ${error.message}`);
@@ -45,8 +46,6 @@ export async function scanPage({ html, url, task, options, user }) {
     const inferIds = [];
     const summaryChunks = [];
 
-    // TODO: If the answer is found in the middle of the page, terminate early, don't summarize the
-    // remaining chunks.
     console.log(`Summarizing page in ${textChunks.length} chunks.`);
     const summaryPrompt = await createPromptFromFile({
         filePath: 'hidden_prompt/summarize.txt',
@@ -64,6 +63,9 @@ export async function scanPage({ html, url, task, options, user }) {
         });
         inferIds.push(inferId);
         summaryChunks.push(reply);
+        if (reply.find(part => part.type === 'stopScan')) {
+            break;
+        }
     }
 
     if (summaryChunks.length > 1) {
